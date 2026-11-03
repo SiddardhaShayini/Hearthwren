@@ -103,6 +103,26 @@ def test_serve_static_js(test_workspace: Path) -> None:
     assert "loadStatus" in content or "fetch" in content
 
 
+def test_serve_favicon(test_workspace: Path) -> None:
+    code, headers, body = simulate_request("/favicon.ico", workspace=test_workspace)
+    assert code == 200
+    assert "image/svg+xml" in headers.get("content-type", "")
+    assert b"<svg" in body
+
+
+def test_serve_brand_assets(test_workspace: Path) -> None:
+    code, headers, body = simulate_request("/assets/hearthwren-icon.svg", workspace=test_workspace)
+    assert code == 200
+    assert "image/svg+xml" in headers.get("content-type", "")
+    assert b"Hearthwren icon" in body or b"<svg" in body
+
+    code2, headers2, body2 = simulate_request("/assets/hearthwren-logo.svg", workspace=test_workspace)
+    assert code2 == 200
+    assert "image/svg+xml" in headers2.get("content-type", "")
+    assert b"Hearthwren logo" in body2 or b"<svg" in body2
+
+
+
 def test_api_status_endpoint(test_workspace: Path) -> None:
     code, _, body = simulate_request("/api/status", workspace=test_workspace)
     assert code == 200

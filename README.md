@@ -1,7 +1,18 @@
-# Hearthwren
+<p align="center">
+  <img src="assets/hearthwren-logo.svg" alt="Hearthwren Logo" width="560">
+</p>
 
-> **Local. Lean. Built right.**  
-> *A local-first, resource-disciplined AI coding agent for CPU-only laptops with 8 GB RAM.*
+<p align="center">
+  <strong>Local. Lean. Built right.</strong><br>
+  <em>A local-first, resource-disciplined AI coding agent for CPU-only laptops with 8 GB RAM.</em>
+</p>
+
+<p align="center">
+  <a href="#quickstart">Quickstart</a> •
+  <a href="#desktop-studio--one-click-launch">Desktop Studio</a> •
+  <a href="docs/user_guide.md">User Guide</a> •
+  <a href="#architecture-overview">Architecture</a>
+</p>
 
 ---
 
@@ -83,11 +94,35 @@ hwren push
 
 ---
 
+## Desktop Studio & One-Click Launch
+
+Hearthwren includes an ultra-lightweight desktop application that consumes **< 25 MB RAM idle** (built with zero Electron / zero Node.js):
+
+- **Windows:** Double-click [`Hearthwren.bat`](Hearthwren.bat) in the repository root.
+- **macOS / Linux:** Run [`./hearthwren.sh`](hearthwren.sh).
+- **CLI / Python:**
+  ```bash
+  python run_hearthwren.py
+  # or
+  hwren app
+  ```
+
+### Desktop Features
+- **Working Repository Switcher:** Switch between any codebase or project on disk directly from the UI header badge.
+- **Real-Time RAM Meter:** Visual headroom tracking with danger thresholds against the strict 3.5 GB ceiling.
+- **Agent Studio:** Run single tasks or 5-phase sequential pipelines with instant action logs.
+- **Diff & Git Inspector:** Inspect unified diffs before changes are finalized, commit, and push.
+- **Symbol & Code Search:** Full-text and symbol search via SQLite FTS5.
+- **Diagnostics Dashboard:** One-click hardware and environment health check.
+
+---
+
 ## CLI Command Reference
 
 | Command | Description |
 |---|---|
 | `hwren` | Launch interactive chat REPL mode |
+| `hwren app` / `hwren ui` | Launch the ultra-lightweight Desktop Studio UI (< 25 MB RAM) |
 | `hwren init` | Auto-detect workspace, scaffold config and `AGENT_MEMORY.md` |
 | `hwren status` | Display resource health, RAM headroom, git status, and memory integrity |
 | `hwren plan "<task>"` | Generate ordered implementation plan with surfaced risks (zero code writes) |
@@ -99,6 +134,11 @@ hwren push
 | `hwren guide "<q>"` | Provide architectural guidance without executing modifications |
 | `hwren setup-model` | Download and verify Nanbeige4.1-3B GGUF weights to `~/.hearthwren/models/` |
 | `hwren config` | View and edit `.hearthwren/config.toml` |
+| `hwren doctor` | Run exhaustive hardware, RAM headroom, and environment diagnostics |
+| `hwren memory` | Parse and inspect `AGENT_MEMORY.md` sections and stale file references |
+| `hwren index` | Rebuild SQLite FTS5 code search and symbol index |
+| `hwren search "<query>"` | Fast local symbol and full-text search |
+
 
 ---
 

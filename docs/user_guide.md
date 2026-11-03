@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="../assets/hearthwren-logo.svg" alt="Hearthwren Logo" width="500">
+</p>
+
 # Hearthwren User Guide & CLI Reference
 
-> *Local. Lean. Built right.*
+> *Local. Lean. Built right.*  
 > A local-first, resource-disciplined AI coding agent engineered specifically for **CPU-only laptops with 8 GB RAM**.
 
 ---

@@ -123,17 +123,13 @@ def launch_desktop(
             print(" * Opening UI in default system browser...")
             webbrowser.open(url)
 
-    print("\nPress Ctrl+C to shut down Hearthwren Desktop.\n")
+    print(" * Status          : Running. Keep this terminal open while using Hearthwren.")
+    print(" * Exit            : Press Ctrl+C in this terminal to quit.")
+    print("=" * 65)
 
     try:
-        if browser_proc:
-            # Wait for user to close window or interrupt
-            while browser_proc.poll() is None:
-                time.sleep(0.5)
-            print("\nApp window closed. Shutting down server...")
-        else:
-            while True:
-                time.sleep(1.0)
+        while True:
+            time.sleep(1.0)
     except KeyboardInterrupt:
         print("\nInterrupt received. Stopping Hearthwren Desktop...")
     finally:

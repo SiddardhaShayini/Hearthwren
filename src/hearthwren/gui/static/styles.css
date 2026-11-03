@@ -63,8 +63,15 @@ body {
   gap: 10px;
 }
 
+.app-icon-img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+}
+
 .logo-badge {
-  background: linear-gradient(135deg, #1f6feb, #238636);
+  background: linear-gradient(135deg, #E8590C, #FF8A3D);
   color: #fff;
   font-weight: 700;
   font-size: 14px;
@@ -186,6 +193,33 @@ body {
 
 .nav-icon {
   font-size: 16px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 14px 10px 8px 10px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-logo-img {
+  max-width: 140px;
+  height: auto;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-logo-img:hover {
+  opacity: 1;
+}
+
+.sidebar-subtext {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
 }
 
 /* Main Content Area */

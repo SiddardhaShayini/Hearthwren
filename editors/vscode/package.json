@@ -3,6 +3,7 @@
   "displayName": "Hearthwren — Local AI Coding Agent",
   "description": "Thin VS Code extension wrapper for Hearthwren (hwren) on CPU-only laptops.",
   "version": "0.1.0",
+  "icon": "assets/hearthwren-icon.svg",
   "publisher": "hearthwren",
   "engines": {
     "vscode": "^1.75.0"

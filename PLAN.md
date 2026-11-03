@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/hearthwren-logo.svg" alt="Hearthwren Logo" width="520">
+</p>
+
 # Hearthwren — Product & Engineering Plan
 
 > **Status:** Planning phase only. No application code has been written.

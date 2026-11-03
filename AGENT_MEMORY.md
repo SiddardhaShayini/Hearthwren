@@ -229,7 +229,9 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 
 | Date (IST) | Phase | Issue / Mistake | What Happened | Lesson |
 |---|---|---|---|---|
-| — | — | No entries yet | Project is in planning phase; no code written | — |
+| 2026-11-03 | Phase 3 | Desktop launcher exited immediately upon launch | Spawning `msedge.exe --app=...` delegates to the existing Edge process on Windows and the child PID exits in 0.2s. `launcher.py` checked `browser_proc.poll()` which returned 0 and immediately shut down the HTTP server. | Desktop server should keep running in main loop until explicit user exit (`Ctrl+C`), rather than coupling server lifetime to the short-lived launcher child PID. |
+| 2026-11-03 | Phase 3 | `Hearthwren.bat` syntax error `... was unexpected at this time` | Batch script had unescaped parentheses in `echo (typer, rich, psutil)` inside an `if (...)` block, terminating the block early. Also `%errorlevel%` inside `else (...)` expanded at parse time. | Never use parentheses in batch script `echo` statements inside compound blocks; use `if not errorlevel 1` sequential checks. |
+
 
 ---
 
@@ -702,6 +704,47 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
   - Windows sandbox security policy blocks TCP loopback socket connections (`urllib.error.URLError: [WinError 10013]`) across separate processes in standard sandboxed test runs. Engineered an in-memory `DummySocket` stream harness that exercises `BaseHTTPRequestHandler` end-to-end without opening TCP network ports, achieving 100% deterministic testing at 0.64s execution time.
 - **Lessons:**
   - Using standard library `http.server` combined with native browser application mode (`--app`) completely avoids bundling heavy Chromium or Node.js runtimes (saving 300–500 MB RAM) while providing a slick, frameless desktop experience.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 16:51 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Fix `Hearthwren.bat` instantaneous closing, resolve child browser PID delegation termination in `launcher.py`, integrate `assets/` SVGs (icon and logo) across UI, docs, and VS Code, and expand test suite to 83 tests
+- **Phase:** Phase 3 & Desktop Branding / Distribution Hardening
+- **Files read:**
+  - `Hearthwren.bat`
+  - `src/hearthwren/gui/launcher.py`
+  - `assets/hearthwren-icon.svg`
+  - `assets/hearthwren-logo.svg`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/gui/static/styles.css`
+- **Files written/modified:**
+  - `Hearthwren.bat`
+  - `src/hearthwren/gui/launcher.py`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/gui/static/styles.css`
+  - `src/hearthwren/gui/static/assets/hearthwren-icon.svg`
+  - `src/hearthwren/gui/static/assets/hearthwren-logo.svg`
+  - `editors/vscode/package.json`
+  - `editors/vscode/assets/hearthwren-icon.svg`
+  - `README.md`
+  - `docs/user_guide.md`
+  - `PLAN.md`
+  - `tests/test_gui.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `cmd.exe /c "Hearthwren.bat --help"` (verified batch execution: verified exit code 0)
+  - `pytest tests/test_gui.py -v` (ran 16 GUI and brand asset tests: 16 passed in 0.54s)
+  - `pytest -v` (ran full project test suite: all 83 tests passed in 2.37s)
+- **Outcome:** Success — Fixed batch file parsing bug and browser PID delegation; desktop server stays active indefinitely until user interrupts; brand SVGs integrated seamlessly as favicon, header brand icon, sidebar footer logo, and documentation banners.
+- **Mistakes / wrong assumptions:**
+  - In batch scripting, unescaped parentheses in `echo` within compound `if (...)` blocks prematurely terminate block parsing, and `%errorlevel%` within `else (...)` evaluates at parse time. Fixed by using unparenthesized sequential `if not errorlevel 1` checks.
+  - Edge/Chrome `--app` launcher child processes terminate immediately upon handing off window creation to an existing browser instance. Decoupled server lifetime from the child process exit status.
+- **Lessons:**
+  - Standalone desktop web app wrappers must never rely on `subprocess.Popen.poll()` when interacting with singleton browsers like Microsoft Edge or Google Chrome.
 - **Approved by user:** Yes
 
 ---

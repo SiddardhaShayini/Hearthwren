@@ -86,6 +86,36 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
         elif path == "/app.js":
             self._send_static("app.js", "application/javascript")
             return
+        elif path in ("/favicon.ico", "/favicon.svg"):
+            fav = STATIC_DIR / "assets" / "hearthwren-icon.svg"
+            if fav.is_file():
+                content = fav.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/svg+xml")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            self.send_error(404, "Favicon not found.")
+            return
+        elif path.startswith("/assets/"):
+            asset_name = Path(path[len("/assets/"):].lstrip("/\\")).name
+            asset_path = STATIC_DIR / "assets" / asset_name
+            if not asset_path.is_file():
+                # Fallback to repo root assets/
+                asset_path = self.workspace_root / "assets" / asset_name
+
+            if asset_path.is_file():
+                mime = "image/svg+xml" if asset_path.suffix.lower() == ".svg" else "application/octet-stream"
+                content = asset_path.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            self.send_error(404, f"Asset '{asset_name}' not found.")
+            return
 
         # 2. REST API endpoints
         if path == "/api/status":
