@@ -414,7 +414,8 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
   - `git branch -M main`
   - `git add .`
   - `git commit -m "feat: initial release of Hearthwren local-first coding agent (Phase 0-3)"`
-- **Outcome:** Success — Repository configured and committed with all Phase 0-3 deliverables and 38 passing tests.
+  - `git push -u origin main` (pushed and verified upstream tracking)
+- **Outcome:** Success — Repository configured, committed, and pushed to origin/main with all Phase 0-3 deliverables and 38 passing tests.
 - **Mistakes / wrong assumptions:** None.
 - **Lessons:** Initial commit encapsulates complete, verified architecture with full documentation and benchmark suite.
 - **Approved by user:** Yes
