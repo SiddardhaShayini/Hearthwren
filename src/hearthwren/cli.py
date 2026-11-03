@@ -529,7 +529,31 @@ def cmd_setup_model(
             return
 
     console.print("[cyan]Starting download...[/cyan]")
-    res = downloader.download_model(approved=True)
+    from rich.progress import (
+        BarColumn,
+        DownloadColumn,
+        Progress,
+        TextColumn,
+        TimeRemainingColumn,
+        TransferSpeedColumn,
+    )
+
+    with Progress(
+        TextColumn("[bold cyan]{task.description}"),
+        BarColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task_id = progress.add_task("Downloading Nanbeige4.1-3B GGUF", total=None)
+
+        def on_progress(downloaded: int, total: int):
+            if total > 0 and progress.tasks[task_id].total is None:
+                progress.update(task_id, total=total)
+            progress.update(task_id, completed=downloaded)
+
+        res = downloader.download_model(approved=True, progress_hook=on_progress)
+
     if res["success"]:
         console.print(f"[bold green][OK] Model downloaded successfully to:[/bold green] {res['destination']}")
     else:

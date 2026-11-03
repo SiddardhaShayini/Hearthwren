@@ -649,4 +649,25 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 
 ---
 
+### Session — 2026-11-03 16:14 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Verify HuggingFace Nanbeige4.1-3B Q4_K_M GGUF model endpoint, add live Rich download progress bar to `setup-model`, and verify full test suite
+- **Phase:** Phase 3 & Distribution Readiness
+- **Files read:**
+  - `src/hearthwren/model_downloader.py`
+  - `src/hearthwren/cli.py`
+- **Files written/modified:**
+  - `src/hearthwren/cli.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - Probed HuggingFace GGUF endpoint (`urllib.request` HEAD/GET: status 200, exact size 2.28 GB verified)
+  - `pytest -v` (ran full test suite: all 67 tests passed in 1.88s)
+- **Outcome:** Success — Model endpoint verified reachable and responsive; interactive progress bar with transfer speed and ETA integrated into `hwren setup-model`.
+- **Mistakes / wrong assumptions:** None.
+- **Lessons:**
+  - Streaming progress hooks with Rich `Progress` give clear visual feedback during multi-gigabyte model downloads over standard terminal sessions.
+- **Approved by user:** Yes
+
+---
+
 <!-- END OF AGENT_MEMORY.md — Append new session entries above this line -->
