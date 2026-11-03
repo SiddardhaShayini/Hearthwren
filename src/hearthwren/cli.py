@@ -31,6 +31,7 @@ from hearthwren.controller import AgentController
 from hearthwren.resource_supervisor import ResourceSupervisor
 from hearthwren.workspace.detector import ProjectDetector
 from hearthwren.workspace.git_service import GitService
+from hearthwren.workspace.indexer import WorkspaceIndexer
 from hearthwren.workspace.memory import MemoryManager
 
 app = typer.Typer(
@@ -242,13 +243,24 @@ def cmd_guide(
 
 
 @app.command("verify")
-def cmd_verify() -> None:
+def cmd_verify(
+    as_json: bool = typer.Option(False, "--json", help="Output test verification results as JSON")
+) -> None:
     """Discover and execute project tests, capturing real exit status."""
-    console.print("[bold cyan]Running project verification tests...[/bold cyan]")
     controller = AgentController()
     result = controller.verify_project()
 
     details = result["details"]
+    if as_json:
+        print(json.dumps({
+            "success": result["success"],
+            "details": details,
+        }, indent=2))
+        if not result["success"]:
+            raise typer.Exit(code=1)
+        return
+
+    console.print("[bold cyan]Running project verification tests...[/bold cyan]")
     if not details.get("executed"):
         console.print(f"[yellow]Tests could not be run:[/yellow] {details.get('error')}")
         raise typer.Exit(code=1)
@@ -428,6 +440,72 @@ def cmd_setup_model(
         raise typer.Exit(code=1)
 
 
+@app.command("index")
+def cmd_index(
+    max_files: int = typer.Option(200, "--max-files", "-m", help="Maximum files to index"),
+    as_json: bool = typer.Option(False, "--json", help="Output indexing summary as JSON"),
+) -> None:
+    """Index workspace source files and symbols into SQLite FTS (.hearthwren/index.db)."""
+    indexer = WorkspaceIndexer()
+    indexed_count = indexer.index_workspace(max_files=max_files)
+    db_size_kb = round(indexer.db_path.stat().st_size / 1024, 1) if indexer.db_path.exists() else 0.0
+
+    if as_json:
+        print(json.dumps({
+            "indexed_files": indexed_count,
+            "db_path": str(indexer.db_path),
+            "db_size_kb": db_size_kb,
+        }, indent=2))
+        return
+
+    console.print(f"[bold green][OK] Indexed {indexed_count} files in {indexer.db_path}[/bold green] ({db_size_kb} KB)")
+
+
+@app.command("search")
+def cmd_search(
+    query: str = typer.Argument(..., help="Search query string or symbol name"),
+    symbols_only: bool = typer.Option(False, "--symbol", "-s", help="Search symbol definitions only"),
+    limit: int = typer.Option(20, "--limit", "-l", help="Maximum results to return"),
+    as_json: bool = typer.Option(False, "--json", help="Output search results as JSON"),
+) -> None:
+    """Fast local full-text and symbol search using SQLite FTS index."""
+    indexer = WorkspaceIndexer()
+    if not indexer.db_path.exists():
+        indexer.index_workspace(max_files=150)
+
+    symbols = indexer.find_symbol(query)
+    fts_results = [] if symbols_only else indexer.search_fts(query, limit=limit)
+
+    if as_json:
+        print(json.dumps({
+            "query": query,
+            "symbols": symbols,
+            "matches": fts_results,
+        }, indent=2))
+        return
+
+    if symbols:
+        sym_table = Table(title=f"Symbols matching '{query}'", show_header=True)
+        sym_table.add_column("Kind", style="cyan")
+        sym_table.add_column("Symbol", style="bold green")
+        sym_table.add_column("Location", style="white")
+        for s in symbols[:limit]:
+            sym_table.add_row(s["kind"], s["name"], f"{s['path']}:{s['line']}")
+        console.print(sym_table)
+
+    if not symbols_only:
+        if fts_results:
+            fts_table = Table(title=f"Full-Text Matches for '{query}'", show_header=True)
+            fts_table.add_column("File", style="cyan")
+            fts_table.add_column("Snippet", style="white")
+            for m in fts_results[:limit]:
+                clean_snippet = m["snippet"].replace("<b>", "[bold yellow]").replace("</b>", "[/bold yellow]")
+                fts_table.add_row(m["path"], clean_snippet)
+            console.print(fts_table)
+        elif not symbols:
+            console.print(f"[yellow]No matches found for '{query}'.[/yellow]")
+
+
 @app.command("config")
 def cmd_config() -> None:
     """Display current Hearthwren configuration."""
@@ -605,8 +683,9 @@ def interactive_repl() -> None:
                 help_table.add_row("/commit <msg>", "Stage and commit changes with user confirmation")
                 help_table.add_row("/status", "Show resource health, project structure, and git status")
                 help_table.add_row("/doctor", "Run diagnostic environment and hardware checks")
+                help_table.add_row("/search <query>", "Search symbols and full-text with SQLite FTS")
+                help_table.add_row("/index", "Rebuild SQLite FTS index over workspace files")
                 help_table.add_row("/resume", "Resume last active task from session.json")
-                help_table.add_row("/index", "Run idle-time SQLite FTS indexing over source files")
                 help_table.add_row("/config", "View current configuration settings")
                 help_table.add_row("/clear", "Clear recent conversation turns")
                 help_table.add_row("exit / quit", "Exit the interactive session")
@@ -640,11 +719,10 @@ def interactive_repl() -> None:
             elif cmd_lower in ("/config", "config"):
                 cmd_config()
             elif cmd_lower in ("/index", "index"):
-                console.print("[cyan]Indexing source files with SQLite FTS...[/cyan]")
-                from hearthwren.workspace.indexer import WorkspaceIndexer
-                indexer = WorkspaceIndexer()
-                n = indexer.index_workspace()
-                console.print(f"[bold green][OK] Indexed {n} files in .hearthwren/index.db[/bold green]")
+                cmd_index()
+            elif cmd_lower.startswith("/search ") or cmd_lower.startswith("search "):
+                sq = user_input.split(" ", 1)[1].strip()
+                cmd_search(sq)
             elif cmd_lower in ("/clear", "clear"):
                 conversation_history.clear()
                 console.print("[cyan]Conversation context cleared.[/cyan]")

@@ -104,8 +104,19 @@ Restores task context, repair count, and actions taken from `.hearthwren/session
 ### Test Verification
 ```bash
 hwren verify
+hwren verify --json
 ```
 Discovers project tests (`pytest`, `npm test`, `cargo test`), executes them under a timeout, captures real exit codes, and displays failure lines.
+
+### Code Search & Symbol Indexing
+```bash
+hwren index
+hwren index --max-files 300
+hwren search "ContextCompressor"
+hwren search "AgentController" --symbol
+hwren search "preflight" --json
+```
+Fast local SQLite FTS5 full-text and symbol indexing. Displays definitions, classes, functions, file paths, line numbers, and search snippet highlights.
 
 ### Version Control
 ```bash

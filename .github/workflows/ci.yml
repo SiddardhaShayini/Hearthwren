@@ -40,3 +40,9 @@ jobs:
     - name: Run benchmark verification
       run: |
         python docs/benchmarks/run_benchmarks.py
+
+    - name: Run CLI smoke tests
+      run: |
+        python -m hearthwren.cli doctor
+        python -m hearthwren.cli index
+        python -m hearthwren.cli search ContextCompressor

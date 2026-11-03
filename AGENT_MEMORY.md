@@ -134,7 +134,7 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/workspace/indexer.py` | Lightweight SQLite FTS5 indexer for idle-time search |
 | `editors/vscode/` | Lightweight VS Code extension wrapper for status, planning, and verification |
 | `.github/workflows/ci.yml` | Multi-OS GitHub Actions CI workflow (Windows, Ubuntu, macOS) |
-| `tests/` | Comprehensive test suite (58 unit & adversarial tests covering all modules) |
+| `tests/` | Comprehensive test suite (62 unit & adversarial tests covering all modules) |
 | `.hearthwren/config.toml` | User-editable settings: context size, timeouts, safe commands, model path (gitignored) |
 | `.hearthwren/index.db` | SQLite FTS + symbol index (gitignored, auto-rebuilds) |
 | `.hearthwren/session.json` | Last task state for resumption (gitignored) |
@@ -162,6 +162,8 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | Guide (explain steps) | `python -m hearthwren.cli guide "<question>"` |
 | Check status | `python -m hearthwren.cli status` (or `status --json`) |
 | Environment diagnostics | `python -m hearthwren.cli doctor` (or `doctor --json`) |
+| Rebuild search index | `python -m hearthwren.cli index` (or `index --json`) |
+| Search code & symbols | `python -m hearthwren.cli search "<query>"` (or `search --json`) |
 | View config | `python -m hearthwren.cli config` |
 
 ---
@@ -578,6 +580,38 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 - **Lessons:**
   - Diffs and raw code must always be passed to Rich as plain `Text` objects or with `markup=False`.
   - Machine-readable JSON CLI outputs must use standard `print()` rather than styled console streams to prevent terminal reformatting.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 15:55 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Implement `hwren index` and `hwren search <query>` CLI commands, add `--json` support to search/verify, add CLI smoke tests to CI workflow, and expand test suite to 62 tests
+- **Phase:** Phase 3 & Post-MVP Search Capabilities
+- **Files read:**
+  - `src/hearthwren/workspace/indexer.py`
+  - `src/hearthwren/cli.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `.github/workflows/ci.yml`
+  - `docs/user_guide.md`
+- **Files written/modified:**
+  - `src/hearthwren/cli.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `.github/workflows/ci.yml`
+  - `docs/user_guide.md`
+  - `tests/test_cli_commands.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python -m hearthwren.cli index` (verified SQLite FTS5 index build)
+  - `python -m hearthwren.cli search ContextCompressor` (verified symbol and full-text snippet matches)
+  - `python -m hearthwren.cli search ContextCompressor --json` (verified structured JSON emission)
+  - `pytest -v` (ran full test suite: all 62 tests passed in 2.58s)
+- **Outcome:** Success — Fast local search, symbol resolution, CI CLI validation, and VS Code integration verified.
+- **Mistakes / wrong assumptions:** None.
+- **Lessons:**
+  - Integrating SQLite FTS5 with lightweight regex-based symbol detection gives an instant, zero-dependency symbol navigation experience that costs < 1 MB disk and zero background RAM.
 - **Approved by user:** Yes
 
 ---

@@ -109,6 +109,24 @@ function activate(context) {
             runHwrenCommand('resume', 'Resume Last Task');
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('hearthwren.search', async () => {
+            const query = await vscode.window.showInputBox({
+                prompt: 'Search code and symbols using SQLite FTS',
+                placeHolder: 'e.g. AgentController, estimate_tokens, preflight',
+            });
+            if (query) {
+                runHwrenCommand(`search "${query.replace(/"/g, '\\"')}"`, `Search: ${query}`);
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('hearthwren.index', () => {
+            runHwrenCommand('index', 'Rebuilding SQLite Search Index');
+        })
+    );
 }
 
 function deactivate() {

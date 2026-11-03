@@ -44,6 +44,14 @@
       {
         "command": "hearthwren.resume",
         "title": "Hearthwren: Resume Last Task"
+      },
+      {
+        "command": "hearthwren.search",
+        "title": "Hearthwren: Search Code & Symbols"
+      },
+      {
+        "command": "hearthwren.index",
+        "title": "Hearthwren: Rebuild SQLite Search Index"
       }
     ]
   }

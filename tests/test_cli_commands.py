@@ -75,3 +75,36 @@ def test_cli_doctor_json():
     assert any(c["category"] == "Python Runtime" for c in data["checks"])
     assert any(c["category"] == "Memory (RAM)" for c in data["checks"])
 
+
+def test_cli_index():
+    result = runner.invoke(app, ["index"])
+    assert result.exit_code == 0
+    assert "Indexed" in result.stdout
+
+
+def test_cli_index_json():
+    import json
+    result = runner.invoke(app, ["index", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "indexed_files" in data
+    assert "db_path" in data
+
+
+def test_cli_search():
+    # Index first
+    runner.invoke(app, ["index"])
+    result = runner.invoke(app, ["search", "AgentController"])
+    assert result.exit_code == 0
+
+
+def test_cli_search_json():
+    import json
+    result = runner.invoke(app, ["search", "AgentController", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "query" in data
+    assert data["query"] == "AgentController"
+    assert "symbols" in data
+
+
