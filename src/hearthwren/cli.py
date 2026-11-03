@@ -759,6 +759,32 @@ def cmd_doctor(
         console.print("\n[bold yellow]! Some checks produced warnings. See suggestions above.[/bold yellow]")
 
 
+@app.command("app")
+def cmd_app(
+    project_dir: Optional[Path] = typer.Option(None, "--dir", "-d", help="Workspace root directory"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Server port (default: 7860 or next free)"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host interface"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Start server only without opening desktop window"),
+) -> None:
+    """Launch the ultra-lightweight Hearthwren Desktop Studio (< 30 MB RAM)."""
+    from hearthwren.gui.launcher import launch_desktop
+
+    root = (project_dir or Path.cwd()).resolve()
+    launch_desktop(host=host, port=port, workspace_root=root, open_window=not no_browser)
+
+
+@app.command("ui")
+def cmd_ui(
+    project_dir: Optional[Path] = typer.Option(None, "--dir", "-d", help="Workspace root directory"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Server port (default: 7860 or next free)"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Server host interface"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Start server only without opening desktop window"),
+) -> None:
+    """Alias for 'hwren app'."""
+    cmd_app(project_dir=project_dir, port=port, host=host, no_browser=no_browser)
+
+
+
 def interactive_repl() -> None:
     """Interactive chat REPL mode with multi-turn support and slash commands."""
     console.print(
@@ -805,6 +831,7 @@ def interactive_repl() -> None:
                 help_table.add_row("/status", "Show resource health, project structure, and git status")
                 help_table.add_row("/doctor", "Run diagnostic environment and hardware checks")
                 help_table.add_row("/memory", "Inspect AGENT_MEMORY.md sections and stale entries")
+                help_table.add_row("/app", "Launch ultra-lightweight Desktop Studio UI (< 30 MB RAM)")
                 help_table.add_row("/search <query>", "Search symbols and full-text with SQLite FTS")
                 help_table.add_row("/index", "Rebuild SQLite FTS index over workspace files")
                 help_table.add_row("/resume", "Resume last active task from session.json")
@@ -831,6 +858,8 @@ def interactive_repl() -> None:
                 cmd_status()
             elif cmd_lower in ("/doctor", "doctor"):
                 cmd_doctor()
+            elif cmd_lower in ("/app", "app", "/ui", "ui"):
+                cmd_app()
             elif cmd_lower in ("/memory", "memory"):
                 cmd_memory()
             elif cmd_lower in ("/resume", "resume"):

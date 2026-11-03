@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>Hearthwren — Local AI Coding Agent</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="logo-badge">hwren</div>
+      <span class="brand-title">Hearthwren</span>
+      <span class="brand-tagline">Local. Lean. Built right.</span>
+    </div>
+
+    <div class="header-status-group">
+      <!-- Repo Selector Badge -->
+      <div class="repo-badge" id="btn-open-repo-modal" title="Click to choose a different workspace repository">
+        <span class="repo-icon">📁</span>
+        <span id="header-repo-name">Loading...</span>
+        <span style="font-size: 10px; color: var(--text-dim);">▼</span>
+      </div>
+
+      <!-- Git Branch -->
+      <div class="ram-health" id="header-git-branch" title="Current Git Branch">
+        <span>🌱</span>
+        <span id="git-branch-text">Git: ...</span>
+      </div>
+
+      <!-- RAM Health Meter -->
+      <div class="ram-health" title="Hardware Memory Usage vs 3.5 GB Ceiling">
+        <span>RAM:</span>
+        <span id="ram-free-text">... GB free</span>
+        <div class="ram-meter">
+          <div class="ram-meter-fill" id="ram-meter-bar"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <nav class="app-sidebar">
+      <div class="nav-item active" data-view="view-chat">
+        <span class="nav-icon">🤖</span>
+        <span>Agent & Run</span>
+      </div>
+      <div class="nav-item" data-view="view-plan">
+        <span class="nav-icon">📋</span>
+        <span>Plan Mode</span>
+      </div>
+      <div class="nav-item" data-view="view-search">
+        <span class="nav-icon">🔍</span>
+        <span>Search & Symbols</span>
+      </div>
+      <div class="nav-item" data-view="view-diff">
+        <span class="nav-icon">🔄</span>
+        <span>Git & Diff</span>
+      </div>
+      <div class="nav-item" data-view="view-memory">
+        <span class="nav-icon">🧠</span>
+        <span>Project Memory</span>
+      </div>
+      <div class="nav-item" data-view="view-doctor">
+        <span class="nav-icon">🩺</span>
+        <span>Diagnostics</span>
+      </div>
+    </nav>
+
+    <!-- Content Views -->
+    <main class="app-content">
+      <!-- 1. Agent & Run View -->
+      <section class="view-panel active" id="view-chat">
+        <div class="view-header">
+          <h2 class="view-title">Agent Task Execution</h2>
+          <p class="view-desc">Direct the local agent to plan, inspect, edit, or run a 5-phase sequential pipeline.</p>
+        </div>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="task-input" class="text-input" placeholder="Describe task (e.g. 'Add password hashing', 'Inspect test suite')...">
+            <button class="btn btn-primary" id="btn-run-task">▶ Run Task</button>
+            <button class="btn btn-secondary" id="btn-run-multiphase" title="Run 5 sequential role-scoped passes">⚡ 5-Phase Pipeline</button>
+            <button class="btn btn-secondary" id="btn-guide-query">💡 Guidance</button>
+          </div>
+          <div style="font-size: 12px; color: var(--text-dim); display: flex; gap: 16px;">
+            <span>🛡️ Consequential writes require explicit confirmation</span>
+            <span>🔒 Mutex lock active (1 sequential inference)</span>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="card-title" style="margin-bottom: 0;">Agent Log & Results</span>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" id="btn-clear-log">Clear</button>
+          </div>
+          <div class="output-log" id="agent-output-log"></div>
+        </div>
+      </section>
+
+      <!-- 2. Plan Mode View -->
+      <section class="view-panel" id="view-plan">
+        <div class="view-header">
+          <h2 class="view-title">Planning Mode</h2>
+          <p class="view-desc">Generate an ordered, structured implementation plan with risks and unknowns surfaced. Zero code changes are made.</p>
+        </div>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="plan-input" class="text-input" placeholder="Feature or refactor to plan...">
+            <button class="btn btn-accent" id="btn-create-plan">📋 Generate Plan</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+          <span class="card-title">Generated Ordered Plan</span>
+          <div class="output-log" id="plan-output-log"></div>
+        </div>
+      </section>
+
+      <!-- 3. Search & Symbols View -->
+      <section class="view-panel" id="view-search">
+        <div class="view-header">
+          <h2 class="view-title">Fast SQLite Code & Symbol Search</h2>
+          <p class="view-desc">Instant full-text and symbol search using the lightweight local SQLite FTS5 index.</p>
+        </div>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="search-input" class="text-input" placeholder="Search functions, classes, keywords...">
+            <button class="btn btn-primary" id="btn-search-all">🔍 Search</button>
+            <button class="btn btn-secondary" id="btn-search-symbols">Class/Func Only</button>
+            <button class="btn btn-secondary" id="btn-reindex">⚡ Rebuild Index</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+          <span class="card-title">Search Results</span>
+          <div id="search-results-container" style="overflow-y: auto; flex: 1;">
+            <div style="color: var(--text-dim); font-style: italic; padding: 10px;">Enter a query above to search workspace files and symbols.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Git & Diff View -->
+      <section class="view-panel" id="view-diff">
+        <div class="view-header">
+          <h2 class="view-title">Version Control & Unified Diff</h2>
+          <p class="view-desc">Inspect exact code changes before approving commits or pushing to remote.</p>
+        </div>
+
+        <div class="card">
+          <div class="input-row">
+            <input type="text" id="commit-msg-input" class="text-input" placeholder="Commit message (e.g. 'feat: implement authentication')...">
+            <button class="btn btn-primary" id="btn-commit-diff">✓ Stage & Commit</button>
+            <button class="btn btn-accent" id="btn-push-diff">🚀 Push to Remote</button>
+            <button class="btn btn-secondary" id="btn-refresh-diff">🔄 Refresh Diff</button>
+          </div>
+        </div>
+
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+          <span class="card-title">Workspace Changes (Unstaged & Staged)</span>
+          <div class="diff-viewer" id="diff-output-viewer">No changes detected in working tree.</div>
+        </div>
+      </section>
+
+      <!-- 5. Project Memory View -->
+      <section class="view-panel" id="view-memory">
+        <div class="view-header">
+          <h2 class="view-title">Project Memory (AGENT_MEMORY.md)</h2>
+          <p class="view-desc">Version-controlled repository architecture, setup commands, conventions, constraints, and session log.</p>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="card-title" style="margin-bottom: 0;">Sections Overview</span>
+            <button class="btn btn-secondary" id="btn-refresh-memory">🔄 Refresh Memory</button>
+          </div>
+          <div id="memory-sections-container" style="margin-top: 14px;"></div>
+        </div>
+      </section>
+
+      <!-- 6. Diagnostics (Doctor) View -->
+      <section class="view-panel" id="view-doctor">
+        <div class="view-header">
+          <h2 class="view-title">Hardware & Environment Diagnostics (Doctor)</h2>
+          <p class="view-desc">Exhaustive verification of hardware RAM constraints, model weights, Git CLI, and inference runtimes.</p>
+        </div>
+
+        <div class="card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span class="card-title" style="margin-bottom: 0;">System Verification Checks</span>
+            <button class="btn btn-secondary" id="btn-refresh-doctor">🩺 Run Diagnostic Check</button>
+          </div>
+          <table class="diag-table">
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Status</th>
+                <th>Current Value / Details</th>
+              </tr>
+            </thead>
+            <tbody id="doctor-table-body">
+              <tr><td colspan="3" style="color: var(--text-dim); text-align: center;">Running diagnostics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Repository Selector Modal -->
+  <div class="modal-overlay" id="repo-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span style="font-weight: 600; font-size: 15px;">Select Working Repository</span>
+        <span style="cursor: pointer; color: var(--text-secondary);" id="btn-close-repo-modal">✕</span>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">
+          Enter the absolute path to any repository or project directory on this machine:
+        </p>
+        <input type="text" id="modal-repo-input" class="text-input" style="width: 100%;" placeholder="e.g. D:\Hearthwren or C:\Projects\MyRepo">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-cancel-repo">Cancel</button>
+        <button class="btn btn-primary" id="btn-apply-repo">Switch Repository</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

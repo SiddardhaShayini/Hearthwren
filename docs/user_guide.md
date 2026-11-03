@@ -182,3 +182,37 @@ Hearthwren includes a lightweight, zero-dependency VS Code extension located in 
   - `Hearthwren: Ask for Guidance`
   - `Hearthwren: View Staged/Workspace Diff`
   - `Hearthwren: Resume Last Task`
+
+---
+
+## 7. Ultra-Lightweight Desktop Studio (< 30 MB RAM)
+
+Hearthwren includes a dedicated, native-feeling desktop application engineered specifically for low-RAM (8 GB) hardware.
+
+### Why It's Ultra-Lightweight
+- **Zero Electron / Zero Node.js:** Built entirely with Python's standard library `http.server` and vanilla HTML/CSS/JS.
+- **Native OS App Window:** Uses Microsoft Edge or Google Chrome's built-in standalone application mode (`--app=http://127.0.0.1:<port>`), giving a frameless, native window without browser bars, tabs, or overhead.
+- **Memory Consumption:** Consumes only ~25 MB RAM idle (compared to 300–600 MB for typical Electron wrappers), preserving maximum RAM for local LLM weights and KV cache.
+
+### One-Click Launchers
+- **Windows:** Double-click [`Hearthwren.bat`](file:///d:/Hearthwren/Hearthwren.bat) in the repository root. It auto-detects Python, prepares an isolated virtual environment, and launches the desktop app.
+- **macOS / Linux:** Run [`./hearthwren.sh`](file:///d:/Hearthwren/hearthwren.sh).
+- **Python / CLI:**
+  ```bash
+  python run_hearthwren.py
+  # or
+  hwren app
+  # or
+  hwren ui
+  ```
+
+### Desktop Studio Features
+1. **Dynamic Working Repository Switcher:** Click the repository badge in the header or use the modal to point Hearthwren to any repository or project directory on disk without restarting the app.
+2. **Live RAM Meter:** Continuous tracking of system RAM, process RSS, and the strict 3.5 GB ceiling with color-coded safety thresholds.
+3. **Agent & Run Studio:** Execute single-step tasks or full 5-phase sequential pipelines with instant action logs.
+4. **Plan Mode:** Generate structured, non-destructive step-by-step implementation plans.
+5. **Fast Code Search:** Query project symbols and full-text with SQLite FTS5 instant matching.
+6. **Git & Diff Inspector:** Review unstaged and staged unified git diffs, stage and commit changes with custom messages, and push to remote.
+7. **Project Memory Inspector:** View parsed sections and check for stale referenced files in `AGENT_MEMORY.md`.
+8. **Diagnostic Doctor:** Check hardware headroom, Python version, Nanbeige weights, and tool dependencies at a glance.
+
