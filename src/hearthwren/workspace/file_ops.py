@@ -31,7 +31,9 @@ class FileOps:
 
     def resolve_path(self, relative_or_absolute_path: str | Path) -> Path:
         """Resolve and validate that a path is strictly inside the workspace root."""
-        raw_path = Path(relative_or_absolute_path)
+        # Normalize backslashes to forward slashes for cross-platform traversal protection
+        normalized_str = str(relative_or_absolute_path).replace("\\", "/")
+        raw_path = Path(normalized_str)
         if raw_path.is_absolute():
             resolved = raw_path.resolve()
         else:

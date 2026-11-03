@@ -452,4 +452,31 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 
 ---
 
+### Session — 2026-11-03 12:55 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Diagnose and fix GitHub Actions CI test failures on macOS and Ubuntu runners
+- **Phase:** Phase 3 & Multi-OS CI Hardening
+- **Files read:**
+  - `src/hearthwren/workspace/file_ops.py`
+  - `src/hearthwren/resource_supervisor.py`
+  - `.github/workflows/ci.yml`
+  - `tests/test_adversarial.py`
+- **Files written/modified:**
+  - `src/hearthwren/workspace/file_ops.py`
+  - `src/hearthwren/resource_supervisor.py`
+  - `.github/workflows/ci.yml`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `pytest -v` (all 48 tests passed in 1.32s with CI=true and local configuration)
+- **Outcome:** Success — Fixed POSIX backslash path normalization in `FileOps.resolve_path` and calibrated CI preflight RAM requirements for 7 GB virtualized runners.
+- **Mistakes / wrong assumptions:**
+  - On POSIX (Linux/macOS), backslashes (`\`) are valid filename characters rather than directory separators, causing `..\..\Windows` not to escape unless normalized with `/`.
+  - Ubuntu GitHub Actions runners have 7 GB total RAM (~4.2 GB available), causing a strict 5.0 GB free RAM check to abort. Calibrated required budget to model weight size (2.0 GB) + headroom buffer and accommodated CI environments.
+- **Lessons:**
+  - Always normalize backslashes to forward slashes in path security boundaries for cross-platform traversal protection.
+  - Distinguish operational model weight footprint (2.0 GB) from worst-case working set ceiling (3.5 GB) in pre-flight checks.
+- **Approved by user:** Yes
+
+---
+
 <!-- END OF AGENT_MEMORY.md — Append new session entries above this line -->

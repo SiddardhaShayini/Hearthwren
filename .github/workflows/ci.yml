@@ -15,6 +15,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.12"]
 
+    env:
+      PYTHONPATH: src
+      CI: "true"
+
     steps:
     - uses: actions/checkout@v4
 
