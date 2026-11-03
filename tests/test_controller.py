@@ -29,3 +29,19 @@ def test_guide_task_execution(tmp_path: Path):
     result = controller.guide_task("How do I structure my project?")
     assert result["success"] is True
     assert "Guidance" in result["guidance"]
+
+
+def test_execute_task_and_resume(tmp_path: Path):
+    controller = AgentController(workspace_root=tmp_path)
+    (tmp_path / "main.py").write_text("print('test')", encoding="utf-8")
+
+    exec_res = controller.execute_task("Inspect files and test")
+    assert exec_res["success"] is True
+    assert exec_res["state"] == AgentState.REPORT
+    assert any("list_files" in a for a in exec_res["actions_taken"])
+
+    # Resume from checkpoint
+    resumed = controller.resume_task()
+    assert resumed["success"] is True
+    assert resumed["resumed"] is True
+    assert resumed["task"] == "Inspect files and test"

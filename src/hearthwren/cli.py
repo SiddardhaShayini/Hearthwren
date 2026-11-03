@@ -252,7 +252,30 @@ def cmd_run(
     console.print("\n[bold]Actions Taken:[/bold]")
     for a in res.get("actions_taken", []):
         console.print(f"  + {a}")
+    if res.get("recovery_proposal"):
+        console.print("\n[bold yellow]Recovery Guidance:[/bold yellow]")
+        console.print(res["recovery_proposal"])
     console.print("\n[bold green]Task execution cycle complete.[/bold green]")
+
+
+@app.command("resume")
+def cmd_resume() -> None:
+    """Resume execution from the last task state in .hearthwren/session.json."""
+    controller = AgentController()
+    res = controller.resume_task()
+
+    if not res.get("success"):
+        console.print(f"[yellow]{res.get('error')}[/yellow]")
+        return
+
+    table = Table(title="Resumed Session State", show_header=True)
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Task Description", res["task"])
+    table.add_row("Last Known State", res["state"])
+    table.add_row("Repair Attempts", str(res["repair_attempts"]))
+    table.add_row("Actions Taken", "\n".join(f"+ {a}" for a in res["actions_taken"]) if res["actions_taken"] else "None")
+    console.print(table)
 
 
 @app.command("diff")
@@ -425,6 +448,7 @@ def interactive_repl() -> None:
                 help_table.add_row("/diff", "View git diff of workspace changes")
                 help_table.add_row("/commit <msg>", "Stage and commit changes with user confirmation")
                 help_table.add_row("/status", "Show resource health, project structure, and git status")
+                help_table.add_row("/resume", "Resume last active task from session.json")
                 help_table.add_row("/index", "Run idle-time SQLite FTS indexing over source files")
                 help_table.add_row("/config", "View current configuration settings")
                 help_table.add_row("/clear", "Clear recent conversation turns")
@@ -447,6 +471,8 @@ def interactive_repl() -> None:
                 cmd_verify()
             elif cmd_lower in ("/status", "status"):
                 cmd_status()
+            elif cmd_lower in ("/resume", "resume"):
+                cmd_resume()
             elif cmd_lower in ("/diff", "diff"):
                 cmd_diff()
             elif cmd_lower.startswith("/commit ") or cmd_lower.startswith("commit "):
@@ -465,15 +491,10 @@ def interactive_repl() -> None:
                 console.print("[cyan]Conversation context cleared.[/cyan]")
             else:
                 # Open-ended multi-turn query
-                # Assemble context from history (windowed to last 3 turns)
-                history_str = ""
-                for u, a in conversation_history[-3:]:
-                    history_str += f"User: {u}\nAssistant: {a}\n"
-
                 system, prompt = controller.assemble_prompt_context(
                     user_message=user_input,
                     role_instructions="ROLE: Conversational assistant. Answer concisely, adhering to resource constraints.",
-                    extra_context=history_str,
+                    history=conversation_history,
                 )
                 response = controller.model_service.generate(prompt=prompt, system_prompt=system)
                 console.print(f"\n{response}")

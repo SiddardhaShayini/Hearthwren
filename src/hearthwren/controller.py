@@ -12,8 +12,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from hearthwren.config import HearthwrenConfig
+from hearthwren.context_compressor import ContextCompressor
 from hearthwren.model_service import LocalModelService
+from hearthwren.recovery import ErrorRecoveryEngine, RepairProposal
 from hearthwren.resource_supervisor import ResourceSupervisor
+from hearthwren.session_state import SessionState, SessionStateManager
 from hearthwren.tool_broker import ToolBroker
 from hearthwren.workspace.memory import MemoryManager
 
@@ -56,6 +59,12 @@ class AgentController:
         self.model_service = model_service or LocalModelService(self.config, self.supervisor, self.workspace_root)
         self.tool_broker = tool_broker or ToolBroker(self.workspace_root, self.config, self.supervisor)
         self.memory_manager = MemoryManager(self.workspace_root)
+        self.recovery_engine = ErrorRecoveryEngine(self.workspace_root, self.config)
+        self.session_manager = SessionStateManager(self.workspace_root)
+        self.context_compressor = ContextCompressor(
+            token_estimator=self.model_service.estimate_tokens,
+            context_ceiling=self.config.context_window,
+        )
 
         self.state = AgentState.UNDERSTAND
         self.turn_budget = 10
@@ -66,6 +75,8 @@ class AgentController:
         user_message: str,
         role_instructions: str = "",
         extra_context: str = "",
+        tool_results: list[dict[str, Any] | str] | None = None,
+        history: list[tuple[str, str]] | None = None,
     ) -> tuple[str, str]:
         """Assemble bounded prompt context strictly within the context ceiling (default 4096 tokens)."""
         system = f"{SYSTEM_PROMPT}\n{role_instructions}".strip()
@@ -74,22 +85,17 @@ class AgentController:
         memory_excerpt = ""
         if self.memory_manager.exists():
             raw_mem = self.memory_manager.read_raw()
-            # Window memory to at most 1000 characters to preserve budget
-            memory_excerpt = f"\n[Project Memory Excerpt]\n{raw_mem[:1200]}\n"
+            # Window memory to at most 1200 characters to preserve budget
+            memory_excerpt = f"[Project Memory Excerpt]\n{raw_mem[:1200]}"
 
-        prompt_body = f"{memory_excerpt}\n{extra_context}\n\nTask: {user_message}".strip()
-
-        # Check total estimated tokens
-        total_tokens = self.model_service.estimate_tokens(system) + self.model_service.estimate_tokens(prompt_body)
-        max_allowed = self.config.context_window
-
-        if total_tokens > max_allowed:
-            # Trim extra context and memory excerpt
-            overshoot = total_tokens - max_allowed + 100
-            chars_to_trim = overshoot * 4
-            prompt_body = prompt_body[:-chars_to_trim] + "\n... [Context trimmed to fit budget]"
-
-        return system, prompt_body
+        return self.context_compressor.assemble_budgeted_prompt(
+            system_prompt=system,
+            user_message=user_message,
+            memory_excerpt=memory_excerpt,
+            extra_context=extra_context,
+            tool_results=tool_results,
+            history=history,
+        )
 
     def plan_task(self, task_description: str) -> dict[str, Any]:
         """Execute planning mode: inspects project, outputs ordered plan, makes zero code changes."""
@@ -157,6 +163,13 @@ class AgentController:
         if not ok:
             return {"success": False, "state": AgentState.ABORTED, "error": msg}
 
+        # Initialize session state checkpoint
+        session = SessionState(
+            task_description=task_description,
+            state=self.state.value,
+        )
+        self.session_manager.save(session)
+
         # First generate the plan
         plan_res = self.plan_task(task_description)
         if not plan_res.get("success"):
@@ -172,9 +185,24 @@ class AgentController:
         # Run verification step
         self.state = AgentState.VERIFY
         verify_res = self.tool_broker.execute_tool("run_tests", {})
-        actions_taken.append(f"run_tests: passed={verify_res.get('passed')}")
+        tests_passed = verify_res.get("passed", False)
+        actions_taken.append(f"run_tests: passed={tests_passed}")
+
+        repair_report: str | None = None
+        if not tests_passed and verify_res.get("executed", False):
+            # Evidence-based recovery loop
+            analysis = self.recovery_engine.analyze_failure(verify_res)
+            proposal = self.recovery_engine.propose_repair(analysis, attempt=1)
+            repair_report = proposal.recommendation
+            actions_taken.append(f"recovery_analysis: {analysis.error_type} in {analysis.culprit_file}")
+            session.repair_attempts = 1
 
         self.state = AgentState.REPORT
+        session.state = self.state.value
+        session.actions_taken = actions_taken
+        session.last_test_passed = tests_passed
+        self.session_manager.save(session)
+
         return {
             "success": True,
             "state": self.state,
@@ -182,4 +210,21 @@ class AgentController:
             "plan": plan_res["plan"],
             "actions_taken": actions_taken,
             "verification": verify_res,
+            "recovery_proposal": repair_report,
+        }
+
+    def resume_task(self) -> dict[str, Any]:
+        """Resume execution from last saved session state."""
+        session = self.session_manager.load()
+        if not session.task_description:
+            return {"success": False, "error": "No previous session found in .hearthwren/session.json."}
+
+        return {
+            "success": True,
+            "resumed": True,
+            "task": session.task_description,
+            "state": session.state,
+            "actions_taken": session.actions_taken,
+            "last_test_passed": session.last_test_passed,
+            "repair_attempts": session.repair_attempts,
         }

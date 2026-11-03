@@ -121,3 +121,24 @@ def test_extreme_memory_pressure_aborts_safely(tmp_path: Path):
     assert ok is False
     assert "INSUFFICIENT RAM" in msg
     assert "Suggestions:" in msg
+
+
+def test_long_session_bounded_context_window(tmp_path: Path):
+    """Verify that multi-turn long sessions never breach the context window ceiling."""
+    controller = AgentController(workspace_root=tmp_path)
+    accumulated_context = ""
+
+    for turn in range(1, 51):
+        turn_input = f"User Turn {turn}: " + ("code analysis query " * 20)
+        accumulated_context += f"\nTurn {turn}: simulated model response...\n"
+
+        system, prompt = controller.assemble_prompt_context(
+            user_message=turn_input,
+            extra_context=accumulated_context,
+        )
+
+        total_tokens = (
+            controller.model_service.estimate_tokens(system)
+            + controller.model_service.estimate_tokens(prompt)
+        )
+        assert total_tokens <= controller.config.context_window

@@ -118,6 +118,7 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/config.py` | Configuration management and `.hearthwren/config.toml` handling |
 | `src/hearthwren/resource_supervisor.py` | RAM ceiling monitor, concurrency lock, timeouts |
 | `src/hearthwren/recovery.py` | Evidence-based error recovery engine (capped at max repair attempts) |
+| `src/hearthwren/context_compressor.py` | Hierarchical context compression and prompt budgeting (<= 4 096 tokens) |
 | `src/hearthwren/session_state.py` | Bounded session state manager (`.hearthwren/session.json`) |
 | `src/hearthwren/model_downloader.py` | GGUF weight downloader with streaming SHA-256 integrity verification |
 | `src/hearthwren/tool_broker.py` | Validated, typed tool dispatch and security broker |
@@ -131,8 +132,9 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/workspace/test_runner.py` | Project test discovery and verified exit-code execution |
 | `src/hearthwren/workspace/memory.py` | In-repo AGENT_MEMORY.md reader/writer and stale entry checker |
 | `src/hearthwren/workspace/indexer.py` | Lightweight SQLite FTS5 indexer for idle-time search |
+| `editors/vscode/` | Lightweight VS Code extension wrapper for status, planning, and verification |
 | `.github/workflows/ci.yml` | Multi-OS GitHub Actions CI workflow (Windows, Ubuntu, macOS) |
-| `tests/` | Comprehensive test suite (48 unit & adversarial tests covering all modules) |
+| `tests/` | Comprehensive test suite (55 unit & adversarial tests covering all modules) |
 | `.hearthwren/config.toml` | User-editable settings: context size, timeouts, safe commands, model path (gitignored) |
 | `.hearthwren/index.db` | SQLite FTS + symbol index (gitignored, auto-rebuilds) |
 | `.hearthwren/session.json` | Last task state for resumption (gitignored) |
@@ -151,7 +153,12 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | Init project | `python -m hearthwren.cli init` |
 | Plan a task | `python -m hearthwren.cli plan "<description>"` |
 | Run a task | `python -m hearthwren.cli run "<description>"` |
+| Resume task | `python -m hearthwren.cli resume` |
 | Verify (tests + lint) | `python -m hearthwren.cli verify` |
+| View diff | `python -m hearthwren.cli diff` |
+| Commit changes | `python -m hearthwren.cli commit "<message>"` |
+| Push commits | `python -m hearthwren.cli push` |
+| Setup model weights | `python -m hearthwren.cli setup-model` |
 | Guide (explain steps) | `python -m hearthwren.cli guide "<question>"` |
 | Check status | `python -m hearthwren.cli status` |
 | View config | `python -m hearthwren.cli config` |
@@ -475,6 +482,67 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 - **Lessons:**
   - Always normalize backslashes to forward slashes in path security boundaries for cross-platform traversal protection.
   - Distinguish operational model weight footprint (2.0 GB) from worst-case working set ceiling (3.5 GB) in pre-flight checks.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 15:28 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Wire ErrorRecoveryEngine into execute_task, connect SessionStateManager checkpoints, add `hwren resume` command, and expand test suite to 51 tests
+- **Phase:** Phase 3 & Reliability Engineering
+- **Files read:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/cli.py`
+  - `tests/test_cli_commands.py`
+  - `tests/test_controller.py`
+  - `tests/test_adversarial.py`
+- **Files written/modified:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/cli.py`
+  - `tests/test_cli_commands.py`
+  - `tests/test_controller.py`
+  - `tests/test_adversarial.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python -m hearthwren.cli resume` (verified clean initial state handling)
+  - `python -m hearthwren.cli run "Inspect project and run tests"` (verified execution cycle and state persistence)
+  - `python -m hearthwren.cli resume` (verified structured session state resumption)
+  - `pytest -v` (ran full test suite: all 51 tests passed in 1.85s)
+- **Outcome:** Success — Automated error recovery hook, persistent session resumption, and multi-turn adversarial bounds verified.
+- **Mistakes / wrong assumptions:** None.
+- **Lessons:** Saving atomic session state checkpoints to `.hearthwren/session.json` ensures zero data loss on unexpected exits and allows seamless task resumption.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 15:36 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Implement hierarchical ContextCompressor, integrate with controller/REPL, add VS Code extension prototype, make benchmarks runner self-contained, and expand test suite to 55 tests
+- **Phase:** Phase 3 & Phase 4 Post-MVP Features
+- **Files read:**
+  - `docs/benchmarks/run_benchmarks.py`
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/cli.py`
+  - `PLAN.md`
+  - `AGENT_MEMORY.md`
+- **Files written/modified:**
+  - `src/hearthwren/context_compressor.py`
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/cli.py`
+  - `docs/benchmarks/run_benchmarks.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `editors/vscode/README.md`
+  - `tests/test_context_compressor.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python docs/benchmarks/run_benchmarks.py` (verified self-contained benchmark execution)
+  - `pytest -v` (ran full test suite: all 55 tests passed in 1.54s)
+- **Outcome:** Success — Hierarchical prompt budgeting, tool summary compression, VS Code extension wrapper, and full test suite passing cleanly.
+- **Mistakes / wrong assumptions:**
+  - When `ContextCompressor` initialized `prompt_token_budget`, using `max(512, ...)` prevented low ceiling overrides in unit tests. Changed lower floor to `max(50, ...)` to support small bounded test fixtures.
+- **Lessons:**
+  - Dedicated hierarchical prompt budgeting ensures that system prompts, policy rules, and user intent are never clipped, while lower priority tool output and conversation history are cleanly compressed first.
 - **Approved by user:** Yes
 
 ---

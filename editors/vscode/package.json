@@ -1,0 +1,46 @@
+{
+  "name": "hearthwren-vscode",
+  "displayName": "Hearthwren — Local AI Coding Agent",
+  "description": "Thin VS Code extension wrapper for Hearthwren (hwren) on CPU-only laptops.",
+  "version": "0.1.0",
+  "publisher": "hearthwren",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "hearthwren.status",
+        "title": "Hearthwren: Show Status & Resource Health"
+      },
+      {
+        "command": "hearthwren.plan",
+        "title": "Hearthwren: Plan a Task"
+      },
+      {
+        "command": "hearthwren.verify",
+        "title": "Hearthwren: Verify Project Tests"
+      },
+      {
+        "command": "hearthwren.guide",
+        "title": "Hearthwren: Ask for Guidance"
+      },
+      {
+        "command": "hearthwren.diff",
+        "title": "Hearthwren: View Staged/Workspace Diff"
+      },
+      {
+        "command": "hearthwren.resume",
+        "title": "Hearthwren: Resume Last Task"
+      }
+    ]
+  }
+}

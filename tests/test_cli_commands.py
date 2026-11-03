@@ -41,3 +41,8 @@ def test_cli_guide():
 def test_cli_diff():
     result = runner.invoke(app, ["diff"])
     assert result.exit_code == 0
+
+
+def test_cli_resume():
+    result = runner.invoke(app, ["resume"])
+    assert result.exit_code == 0
