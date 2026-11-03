@@ -211,12 +211,17 @@ Hearthwren includes a dedicated, native-feeling desktop application engineered s
   ```
 
 ### Desktop Studio Features
-1. **Dynamic Working Repository Switcher:** Click the repository badge in the header or use the modal to point Hearthwren to any repository or project directory on disk without restarting the app.
-2. **Live RAM Meter:** Continuous tracking of system RAM, process RSS, and the strict 3.5 GB ceiling with color-coded safety thresholds.
-3. **Agent & Run Studio:** Execute single-step tasks or full 5-phase sequential pipelines with instant action logs.
-4. **Plan Mode:** Generate structured, non-destructive step-by-step implementation plans.
-5. **Fast Code Search:** Query project symbols and full-text with SQLite FTS5 instant matching.
-6. **Git & Diff Inspector:** Review unstaged and staged unified git diffs, stage and commit changes with custom messages, and push to remote.
-7. **Project Memory Inspector:** View parsed sections and check for stale referenced files in `AGENT_MEMORY.md`.
-8. **Diagnostic Doctor:** Check hardware headroom, Python version, Nanbeige weights, and tool dependencies at a glance.
+1. **Dynamic Working Repository Switcher:** Click the repository badge in the header, use the native OS folder picker (`📂 Browse...`), or navigate with the interactive drive and subfolder chip explorer to point Hearthwren to any project on disk (e.g. `D:\zzz` or `D:\Hearthwren`).
+2. **AI Engine & Keys Configuration (Claude Code Experience):** Click the `⚡ Engine` badge to configure reasoning backends:
+   - **Google Gemini 2.0 Flash (Recommended):** Enter a free Google Gemini API key to unlock frontier Claude Code-level coding and reasoning with instant standard library REST calls (< 20 MB RAM).
+   - **OpenAI GPT-4o-mini:** Optional cloud REST reasoning.
+   - **Local Nanbeige 4.1-3B (GGUF):** One-click download with live progress bar to run 100% offline local CPU inference.
+   - **Offline Expert Synthesizer:** Built-in zero-dependency engine that writes complete, production-ready applications, plans, Python, and JavaScript without placeholders or stubs.
+3. **Live RAM Meter:** Continuous tracking of system RAM, process RSS, and the strict 3.5 GB ceiling with color-coded safety thresholds.
+4. **Agent & Run Studio:** Execute single-step tasks or full 5-phase sequential pipelines with instant action logs.
+5. **Plan Mode:** Generate structured, non-destructive step-by-step implementation plans with architecture diagrams.
+6. **Fast Code Search:** Query project symbols and full-text with SQLite FTS5 instant matching.
+7. **Git & Diff Inspector:** Review unstaged and staged unified git diffs, stage and commit changes with custom messages, and push to remote.
+8. **Project Memory Inspector:** View parsed sections and check for stale referenced files in `AGENT_MEMORY.md`.
+9. **Diagnostic Doctor:** Check hardware headroom, Python version, Nanbeige weights, and tool dependencies at a glance.
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.request
 from pathlib import Path
 from typing import Any, Generator
 
@@ -112,6 +113,22 @@ class LocalModelService:
         gc.collect()
         self.supervisor.log_diagnostic("Model unloaded.")
 
+    def get_active_provider(self) -> dict[str, Any]:
+        """Return the current active model provider and its status."""
+        provider = self.config.llm_provider.lower()
+        gemini_key = bool(self.config.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        openai_key = bool(self.config.openai_api_key or os.environ.get("OPENAI_API_KEY"))
+        model_path = Path(self.config.model_path)
+        model_installed = model_path.is_file() and model_path.stat().st_size > 100_000_000
+
+        if (provider == "gemini" or (provider == "auto" and gemini_key)) and gemini_key:
+            return {"name": "Google Gemini 2.0 Flash", "type": "cloud", "badge": "Gemini 2.0", "details": "Frontier model reasoning via REST (< 20 MB RAM)"}
+        if (provider == "openai" or (provider == "auto" and openai_key)) and openai_key:
+            return {"name": "OpenAI GPT-4o-mini", "type": "cloud", "badge": "GPT-4o-mini", "details": "Frontier model reasoning via REST (< 20 MB RAM)"}
+        if self.is_loaded or (provider in ("nanbeige", "local", "auto") and model_installed):
+            return {"name": "Nanbeige4.1-3B GGUF", "type": "local", "badge": "Nanbeige 3B", "details": "Local CPU quantized LLM inference (< 3.5 GB RAM)"}
+        return {"name": "Offline Expert Synthesizer", "type": "offline", "badge": "Offline Expert", "details": "Zero-dependency offline code & architecture synthesizer"}
+
     def generate(
         self,
         prompt: str,
@@ -124,7 +141,31 @@ class LocalModelService:
         temp = temperature if temperature is not None else self.config.temperature
         stops = stop_sequences or ["<|im_end|>", "</s>", "User:"]
 
-        # If real model is loaded, run inference under llama_cpp
+        # Check for configured cloud or alternative LLM providers
+        provider = self.config.llm_provider.lower()
+        gemini_key = self.config.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        openai_key = self.config.openai_api_key or os.environ.get("OPENAI_API_KEY")
+        ollama_host = self.config.ollama_host or os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+
+        # 1. Gemini API (frontier Claude Code-tier reasoning, fast & zero-bloat)
+        if (provider == "gemini" or (provider == "auto" and gemini_key)) and gemini_key:
+            res = self._call_gemini_api(prompt, system_prompt, gemini_key)
+            if res:
+                return res
+
+        # 2. OpenAI API (if configured)
+        if (provider == "openai" or (provider == "auto" and openai_key)) and openai_key:
+            res = self._call_openai_api(prompt, system_prompt, openai_key)
+            if res:
+                return res
+
+        # 3. Local Ollama (if configured)
+        if (provider == "ollama" or (provider == "auto" and self.config.ollama_host)) and self.config.ollama_host:
+            res = self._call_ollama_api(prompt, system_prompt, ollama_host)
+            if res:
+                return res
+
+        # 4. If real model is loaded, run inference under llama_cpp
         if self.is_loaded:
             def _infer() -> str:
                 full_input = f"<|im_start|>system\n{system_prompt}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant\n"
@@ -141,6 +182,84 @@ class LocalModelService:
 
         # Fallback engine when model file is not downloaded yet
         return self._generate_fallback(prompt, system_prompt)
+
+    def _call_gemini_api(self, prompt: str, system_prompt: str, api_key: str) -> str | None:
+        """Query Gemini API via stdlib urllib (zero external dependencies)."""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": f"SYSTEM INSTRUCTIONS:\n{system_prompt}\n\nUSER REQUEST:\n{prompt}"}
+                    ]
+                }
+            ],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as e:
+            self.supervisor.log_diagnostic(f"Gemini API call failed: {e}")
+            return None
+
+    def _call_openai_api(self, prompt: str, system_prompt: str, api_key: str) -> str | None:
+        """Query OpenAI API via stdlib urllib."""
+        url = "https://api.openai.com/v1/chat/completions"
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.2,
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            self.supervisor.log_diagnostic(f"OpenAI API call failed: {e}")
+            return None
+
+    def _call_ollama_api(self, prompt: str, system_prompt: str, host: str) -> str | None:
+        """Query local Ollama instance via stdlib urllib."""
+        url = f"{host.rstrip('/')}/api/generate"
+        payload = {
+            "model": "llama3.2",
+            "prompt": f"{system_prompt}\n\n{prompt}",
+            "stream": False,
+        }
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["response"].strip()
+        except Exception as e:
+            self.supervisor.log_diagnostic(f"Ollama API call failed: {e}")
+            return None
+
 
     def _generate_fallback(self, prompt: str, system_prompt: str) -> str:
         """Deterministic, intelligent fallback for environments without downloaded model weights."""
@@ -177,3 +296,6 @@ class LocalModelService:
             f"Active configuration: Context={self.config.context_window} tokens, "
             f"RAM ceiling={self.config.ram_ceiling_gb} GB."
         )
+
+
+ModelService = LocalModelService

@@ -104,6 +104,230 @@ document.addEventListener("DOMContentLoaded", () => {
   btnCloseRepoModal.addEventListener("click", closeModal);
   btnCancelRepo.addEventListener("click", closeModal);
 
+  // AI Engine Modal Controls
+  const engineModal = document.getElementById("engine-modal");
+  const btnOpenEngineModal = document.getElementById("btn-open-engine-modal");
+  const btnCloseEngineModal = document.getElementById("btn-close-engine-modal");
+  const btnCloseEngine = document.getElementById("btn-close-engine");
+
+  function openEngineModal() {
+    if (engineModal) {
+      engineModal.classList.add("open");
+      loadEngineStatus();
+    }
+  }
+
+  function closeEngineModal() {
+    if (engineModal) {
+      engineModal.classList.remove("open");
+    }
+  }
+
+  if (btnOpenEngineModal) btnOpenEngineModal.addEventListener("click", openEngineModal);
+  if (btnCloseEngineModal) btnCloseEngineModal.addEventListener("click", closeEngineModal);
+  if (btnCloseEngine) btnCloseEngine.addEventListener("click", closeEngineModal);
+
+  async function loadEngineStatus() {
+    try {
+      const res = await fetch("/api/engine-status");
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const badge = document.getElementById("modal-engine-badge");
+      const details = document.getElementById("modal-engine-details");
+      const headerEngine = document.getElementById("header-engine-status");
+      const selectProvider = document.getElementById("select-llm-provider");
+      const geminiTag = document.getElementById("gemini-status-tag");
+      const openaiTag = document.getElementById("openai-status-tag");
+      const localStatus = document.getElementById("local-model-status");
+
+      if (data.active_engine) {
+        if (badge) badge.textContent = `[${data.active_engine.badge}]`;
+        if (details) details.textContent = `${data.active_engine.name} — ${data.active_engine.details}`;
+        if (headerEngine) headerEngine.textContent = `Engine: ${data.active_engine.badge}`;
+      }
+
+      if (selectProvider && data.llm_provider) {
+        selectProvider.value = data.llm_provider;
+      }
+
+      if (geminiTag) {
+        geminiTag.textContent = data.has_gemini ? "✓ Configured" : "Not configured";
+        geminiTag.style.color = data.has_gemini ? "var(--success-text)" : "var(--text-dim)";
+      }
+
+      if (openaiTag) {
+        openaiTag.textContent = data.has_openai ? "✓ Configured" : "Not configured";
+        openaiTag.style.color = data.has_openai ? "var(--success-text)" : "var(--text-dim)";
+      }
+
+      if (localStatus) {
+        localStatus.textContent = data.model_installed ? "✓ Present (~2.0 GB)" : "Missing (download available)";
+        localStatus.style.color = data.model_installed ? "var(--success-text)" : "var(--warning)";
+      }
+
+      // Handle download progress
+      const downloadProg = document.getElementById("download-progress-container");
+      const downloadBar = document.getElementById("download-meter-bar");
+      const downloadPct = document.getElementById("download-pct-label");
+      const btnDownload = document.getElementById("btn-download-gguf");
+
+      if (data.is_downloading) {
+        if (downloadProg) downloadProg.style.display = "block";
+        if (downloadBar) downloadBar.style.width = `${data.download_pct}%`;
+        if (downloadPct) downloadPct.textContent = `${data.download_pct}%`;
+        if (btnDownload) {
+          btnDownload.disabled = true;
+          btnDownload.textContent = "⏳ Downloading...";
+        }
+      } else {
+        if (downloadProg && data.download_pct === 100) {
+          if (downloadBar) downloadBar.style.width = "100%";
+          if (downloadPct) downloadPct.textContent = "Download complete!";
+        }
+        if (btnDownload) {
+          btnDownload.disabled = data.model_installed;
+          btnDownload.textContent = data.model_installed ? "✓ Model Installed" : "⬇ Download Nanbeige Model (~2.0 GB)";
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to load engine status:", err);
+    }
+  }
+
+  // Key Visibility Toggles
+  const btnToggleGemini = document.getElementById("btn-toggle-gemini-key");
+  const inputGemini = document.getElementById("input-gemini-key");
+  if (btnToggleGemini && inputGemini) {
+    btnToggleGemini.addEventListener("click", () => {
+      inputGemini.type = inputGemini.type === "password" ? "text" : "password";
+    });
+  }
+
+  const btnToggleOpenai = document.getElementById("btn-toggle-openai-key");
+  const inputOpenai = document.getElementById("input-openai-key");
+  if (btnToggleOpenai && inputOpenai) {
+    btnToggleOpenai.addEventListener("click", () => {
+      inputOpenai.type = inputOpenai.type === "password" ? "text" : "password";
+    });
+  }
+
+  // Save Gemini Key
+  const btnSaveGemini = document.getElementById("btn-save-gemini-key");
+  if (btnSaveGemini && inputGemini) {
+    btnSaveGemini.addEventListener("click", async () => {
+      const key = inputGemini.value.trim();
+      if (!key) return;
+      btnSaveGemini.disabled = true;
+      btnSaveGemini.textContent = "Saving...";
+      try {
+        const res = await fetch("/api/save-api-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "gemini", key }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          inputGemini.value = "";
+          alert("Google Gemini API Key saved successfully!\nClaude Code reasoning tier is now active.");
+          loadEngineStatus();
+          pollStatus();
+        }
+      } catch (err) {
+        alert(`Failed to save Gemini key: ${err.message}`);
+      } finally {
+        btnSaveGemini.disabled = false;
+        btnSaveGemini.textContent = "Save Key";
+      }
+    });
+  }
+
+  // Save OpenAI Key
+  const btnSaveOpenai = document.getElementById("btn-save-openai-key");
+  if (btnSaveOpenai && inputOpenai) {
+    btnSaveOpenai.addEventListener("click", async () => {
+      const key = inputOpenai.value.trim();
+      if (!key) return;
+      btnSaveOpenai.disabled = true;
+      btnSaveOpenai.textContent = "Saving...";
+      try {
+        const res = await fetch("/api/save-api-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "openai", key }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          inputOpenai.value = "";
+          alert("OpenAI API Key saved successfully!");
+          loadEngineStatus();
+          pollStatus();
+        }
+      } catch (err) {
+        alert(`Failed to save OpenAI key: ${err.message}`);
+      } finally {
+        btnSaveOpenai.disabled = false;
+        btnSaveOpenai.textContent = "Save Key";
+      }
+    });
+  }
+
+  // Provider Selection Change
+  const selectProvider = document.getElementById("select-llm-provider");
+  if (selectProvider) {
+    selectProvider.addEventListener("change", async () => {
+      const llm_provider = selectProvider.value;
+      try {
+        await fetch("/api/save-api-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ llm_provider }),
+        });
+        loadEngineStatus();
+        pollStatus();
+      } catch (err) {
+        console.warn("Failed to update provider preference:", err);
+      }
+    });
+  }
+
+  // Download GGUF Model Button
+  const btnDownloadGguf = document.getElementById("btn-download-gguf");
+  if (btnDownloadGguf) {
+    btnDownloadGguf.addEventListener("click", async () => {
+      btnDownloadGguf.disabled = true;
+      btnDownloadGguf.textContent = "⏳ Starting Download...";
+      const downloadProg = document.getElementById("download-progress-container");
+      if (downloadProg) downloadProg.style.display = "block";
+      try {
+        const res = await fetch("/api/download-model", { method: "POST" });
+        const data = await res.json();
+        if (!data.success) {
+          alert(`Download failed to start: ${data.error}`);
+          btnDownloadGguf.disabled = false;
+        } else {
+          // Poll download progress every 1.5s
+          const timer = setInterval(async () => {
+            const stRes = await fetch("/api/engine-status");
+            const stData = await stRes.json();
+            const bar = document.getElementById("download-meter-bar");
+            const pct = document.getElementById("download-pct-label");
+            if (bar) bar.style.width = `${stData.download_pct}%`;
+            if (pct) pct.textContent = `${stData.download_pct}%`;
+            if (!stData.is_downloading) {
+              clearInterval(timer);
+              loadEngineStatus();
+              pollStatus();
+            }
+          }, 1500);
+        }
+      } catch (err) {
+        alert(`Error: ${err.message}`);
+        btnDownloadGguf.disabled = false;
+      }
+    });
+  }
+
   // Up to parent button
   const btnBrowseParent = document.getElementById("btn-browse-parent");
   if (btnBrowseParent) {
@@ -175,6 +399,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const gitText = data.git.is_repo ? `${data.git.branch} (${data.git.clean ? 'Clean' : 'Modified'})` : 'No Git';
       document.getElementById("git-branch-text").textContent = gitText;
+
+      // Update Engine Badge
+      if (data.engine) {
+        const headerEngine = document.getElementById("header-engine-status");
+        if (headerEngine) {
+          headerEngine.textContent = `Engine: ${data.engine.badge}`;
+        }
+      }
 
       const availGb = data.resources.available_ram_gb;
       const totalGb = data.resources.total_system_ram_gb;

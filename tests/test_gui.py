@@ -268,3 +268,53 @@ def test_launcher_helpers() -> None:
 
     browser, name = find_system_app_browser()
     assert name in ("msedge", "chrome", "chromium", "system_default")
+
+
+def test_api_engine_status_endpoint(test_workspace: Path) -> None:
+    code, _, body = simulate_request(
+        "/api/engine-status",
+        method="GET",
+        workspace=test_workspace,
+    )
+    assert code == 200
+    data = json.loads(body.decode("utf-8"))
+    assert "active_engine" in data
+    assert "badge" in data["active_engine"]
+    assert "has_gemini" in data
+    assert "has_openai" in data
+    assert "llm_provider" in data
+
+
+def test_api_save_api_key_endpoint(test_workspace: Path) -> None:
+    code, _, body = simulate_request(
+        "/api/save-api-key",
+        method="POST",
+        body={"provider": "gemini", "key": "AIzaSyTestKey123", "llm_provider": "gemini"},
+        workspace=test_workspace,
+    )
+    assert code == 200
+    data = json.loads(body.decode("utf-8"))
+    assert data["success"] is True
+
+    # Verify status reflects the saved key
+    st_code, _, st_body = simulate_request(
+        "/api/engine-status",
+        method="GET",
+        workspace=test_workspace,
+    )
+    assert st_code == 200
+    st_data = json.loads(st_body.decode("utf-8"))
+    assert st_data["has_gemini"] is True
+    assert st_data["active_engine"]["badge"] == "Gemini 2.0"
+
+
+def test_api_status_includes_engine_info(test_workspace: Path) -> None:
+    code, _, body = simulate_request(
+        "/api/status",
+        method="GET",
+        workspace=test_workspace,
+    )
+    assert code == 200
+    data = json.loads(body.decode("utf-8"))
+    assert "engine" in data
+    assert "badge" in data["engine"]

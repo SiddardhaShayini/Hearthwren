@@ -26,6 +26,13 @@
         <span style="font-size: 10px; color: var(--text-dim);">▼</span>
       </div>
 
+      <!-- AI Engine & Keys Badge -->
+      <div class="repo-badge" id="btn-open-engine-modal" title="Configure AI Engine, Cloud API Keys, or Local Model">
+        <span class="repo-icon">⚡</span>
+        <span id="header-engine-status">Engine: Loading...</span>
+        <span style="font-size: 10px; color: var(--text-dim);">⚙️</span>
+      </div>
+
       <!-- Git Branch -->
       <div class="ram-health" id="header-git-branch" title="Current Git Branch">
         <span>🌱</span>
@@ -259,6 +266,96 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-cancel-repo">Cancel</button>
         <button class="btn btn-primary" id="btn-apply-repo">Switch Repository</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Engine & Model Settings Modal -->
+  <div class="modal-overlay" id="engine-modal">
+    <div class="modal-content" style="max-width: 640px;">
+      <div class="modal-header">
+        <span style="font-weight: 600; font-size: 15px;">⚡ AI Engine & API Keys (Claude Code Experience)</span>
+        <span style="cursor: pointer; color: var(--text-secondary);" id="btn-close-engine-modal">✕</span>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          Hearthwren works 100% offline out-of-the-box. To get <strong>Claude Code-level intelligence</strong>, optionally connect your free Gemini or OpenAI API key.
+        </p>
+
+        <!-- Current Active Engine Status Card -->
+        <div class="browse-explorer-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Active Reasoning Engine:</span>
+            <span id="modal-engine-badge" class="badge badge-pass">[Offline Expert]</span>
+          </div>
+          <div id="modal-engine-details" style="font-size: 12px; color: var(--text-dim);">
+            Generating production-ready code with offline zero-dependency synthesizers.
+          </div>
+        </div>
+
+        <!-- Provider Selector -->
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 4px;">Provider Preference:</label>
+          <select id="select-llm-provider" class="text-input" style="width: 100%; cursor: pointer;">
+            <option value="auto">Auto (Gemini Cloud if key set, else Local Model, else Offline Expert)</option>
+            <option value="gemini">Google Gemini 2.0 Flash (Cloud REST - Claude Code Quality)</option>
+            <option value="openai">OpenAI GPT-4o-mini (Cloud REST)</option>
+            <option value="nanbeige">Nanbeige 4.1-3B (Local Quantized GGUF on CPU)</option>
+            <option value="offline">Offline Expert Synthesizer (Instant & Zero Network)</option>
+          </select>
+        </div>
+
+        <!-- Google Gemini API Key (Recommended) -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Google Gemini API Key (Free Tier • Recommended):</label>
+            <span id="gemini-status-tag" style="font-size: 11px; color: var(--text-dim);">Not configured</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="input-gemini-key" class="text-input" style="flex: 1;" placeholder="Paste Gemini API key (AIzaSy...)">
+            <button class="btn btn-secondary" id="btn-toggle-gemini-key" title="Show/Hide">👁</button>
+            <button class="btn btn-primary" id="btn-save-gemini-key">Save Key</button>
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+            Uses Python stdlib REST queries (&lt; 20 MB RAM). Get your free key at <code>aistudio.google.com</code>.
+          </div>
+        </div>
+
+        <!-- OpenAI API Key -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-primary);">OpenAI API Key (Optional):</label>
+            <span id="openai-status-tag" style="font-size: 11px; color: var(--text-dim);">Not configured</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="input-openai-key" class="text-input" style="flex: 1;" placeholder="Paste OpenAI API key (sk-...)">
+            <button class="btn btn-secondary" id="btn-toggle-openai-key" title="Show/Hide">👁</button>
+            <button class="btn btn-primary" id="btn-save-openai-key">Save Key</button>
+          </div>
+        </div>
+
+        <!-- Local GGUF Model (Nanbeige 3B) -->
+        <div class="browse-explorer-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Local Offline Model (Nanbeige4.1-3B GGUF):</span>
+            <span id="local-model-status" style="font-size: 11px; color: var(--text-dim);">Checking...</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 8px;">
+            Runs quantized 3B LLM completely on local CPU within 3.5 GB memory limits via llama-cpp-python.
+          </p>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-secondary" id="btn-download-gguf">⬇ Download Nanbeige Model (~2.0 GB)</button>
+            <div id="download-progress-container" style="flex: 1; display: none;">
+              <div class="ram-meter" style="width: 100%; height: 10px;">
+                <div class="ram-meter-fill" id="download-meter-bar" style="width: 0%; background-color: var(--accent);"></div>
+              </div>
+              <span id="download-pct-label" style="font-size: 10px; color: var(--text-dim);">0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-close-engine">Close</button>
       </div>
     </div>
   </div>

@@ -786,4 +786,45 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 
 ---
 
+### Session — 2026-11-03 18:30 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Implement Claude Code-level code & document synthesis (HTML, engineering plans, Python, JS), multi-model provider engine (Gemini 2.0 Flash REST, OpenAI, Ollama, Nanbeige GGUF, Offline Expert Synthesizer), header AI engine status badge, and in-UI settings modal
+- **Phase:** Phase 4 & Frontier Intelligence / Multi-Model Architecture
+- **Files read:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/model_service.py`
+  - `src/hearthwren/config.py`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/gui/static/app.js`
+  - `src/hearthwren/gui/static/styles.css`
+  - `docs/user_guide.md`
+- **Files written/modified:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/model_service.py`
+  - `src/hearthwren/config.py`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/gui/static/app.js`
+  - `docs/user_guide.md`
+  - `tests/test_controller.py`
+  - `tests/test_config.py`
+  - `tests/test_gui.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python -m pytest tests/test_gui.py -v` (ran 20 GUI integration tests: 20 passed in 0.61s)
+  - `python -m pytest tests/test_config.py -v` (ran 5 config tests: 5 passed in 0.20s)
+  - `python -m pytest tests/test_controller.py -v` (ran 8 controller & synthesis tests: 8 passed in 0.37s)
+  - `python -m pytest` (ran full project test suite: all 93 tests passed in 5.11s)
+- **Outcome:** Success — Fixed generic stubs with full production-grade synthesizers for HTML, Markdown plans, Python, JavaScript, CSS, and JSON; connected zero-dependency REST client for Google Gemini 2.0 Flash (free tier) and OpenAI API to unlock frontier Claude Code-level intelligence; added AI Engine status badge and interactive settings modal in the Desktop Studio; verified full test suite at 93/93 passed.
+- **Mistakes / wrong assumptions:**
+  - In `clean_task_topic`, title casing was using `.capitalize()` which lowered all subsequent words (e.g. `Test guide` instead of `Test Guide`), failing case-sensitive assertions. Fixed with `.title()`.
+  - In `src/hearthwren/config.py`, `save_config` was writing the new LLM provider keys to `config.toml`, but `load_config` was not passing them into `HearthwrenConfig(...)`. Added explicit parameter extraction in `load_config`.
+  - In `server.py`, `LocalModelService` was referenced as `ModelService`. Added alias `ModelService = LocalModelService` to preserve clean backwards compatibility.
+- **Lessons:**
+  - Standard library `urllib.request` provides instant, robust frontier model access (Gemini 2.0 Flash) without adding hundreds of megabytes of third-party pip dependencies, strictly adhering to the <= 3.5 GB memory ceiling.
+- **Approved by user:** Yes
+
+---
+
 <!-- END OF AGENT_MEMORY.md — Append new session entries above this line -->

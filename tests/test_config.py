@@ -28,12 +28,46 @@ def test_config_validation():
 
 
 def test_save_and_load_config(tmp_path: Path):
-    cfg = HearthwrenConfig(context_window=2048, ram_ceiling_gb=3.0)
+    cfg = HearthwrenConfig(
+        context_window=2048,
+        ram_ceiling_gb=3.0,
+        gemini_api_key="AIzaSyTestKey456",
+        openai_api_key="sk-test-key",
+        llm_provider="gemini",
+    )
     save_config(cfg, workspace_root=tmp_path)
 
     loaded = load_config(workspace_root=tmp_path)
     assert loaded.context_window == 2048
     assert loaded.ram_ceiling_gb == 3.0
+    assert loaded.gemini_api_key == "AIzaSyTestKey456"
+    assert loaded.openai_api_key == "sk-test-key"
+    assert loaded.llm_provider == "gemini"
+
+
+def test_model_service_provider_detection(tmp_path: Path):
+    from hearthwren.model_service import LocalModelService
+
+    # 1. Default without keys or model -> Offline Expert
+    cfg_default = HearthwrenConfig()
+    svc1 = LocalModelService(cfg_default, workspace_root=tmp_path)
+    p1 = svc1.get_active_provider()
+    assert p1["type"] == "offline"
+    assert p1["badge"] == "Offline Expert"
+
+    # 2. Configured with Gemini API key -> Gemini 2.0 Flash
+    cfg_gemini = HearthwrenConfig(gemini_api_key="AIzaSyTest", llm_provider="gemini")
+    svc2 = LocalModelService(cfg_gemini, workspace_root=tmp_path)
+    p2 = svc2.get_active_provider()
+    assert p2["type"] == "cloud"
+    assert p2["badge"] == "Gemini 2.0"
+
+    # 3. Configured with OpenAI API key -> GPT-4o-mini
+    cfg_openai = HearthwrenConfig(openai_api_key="sk-test", llm_provider="openai")
+    svc3 = LocalModelService(cfg_openai, workspace_root=tmp_path)
+    p3 = svc3.get_active_provider()
+    assert p3["type"] == "cloud"
+    assert p3["badge"] == "GPT-4o-mini"
 
 
 def test_init_workspace_dirs(tmp_path: Path):

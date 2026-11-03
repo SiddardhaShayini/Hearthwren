@@ -75,3 +75,32 @@ def test_execute_task_creates_file_on_disk(tmp_path: Path):
     assert "# Test Guide" in content
     assert "Overview" in content
 
+
+def test_execute_task_creates_html_application(tmp_path: Path):
+    controller = AgentController(workspace_root=tmp_path)
+    res = controller.execute_task("create index.html file and develop a static web application for Agentic AI application")
+    assert res["success"] is True
+    assert res["file_created"] == "index.html"
+
+    created = tmp_path / "index.html"
+    assert created.is_file()
+    html_text = created.read_text(encoding="utf-8")
+    assert "<!DOCTYPE html>" in html_text
+    assert "stepper" in html_text
+    assert "Agentic AI" in html_text
+    assert "Understand" in html_text
+
+
+def test_execute_task_creates_expert_plan(tmp_path: Path):
+    controller = AgentController(workspace_root=tmp_path)
+    res = controller.execute_task("create plan.md file and write a simple plan to develop a static web application for Agentic AI application")
+    assert res["success"] is True
+    assert res["file_created"] == "plan.md"
+
+    created = tmp_path / "plan.md"
+    assert created.is_file()
+    plan_text = created.read_text(encoding="utf-8")
+    assert "flowchart" in plan_text
+    assert "Phased Implementation" in plan_text
+    assert "Acceptance Criteria" in plan_text
+

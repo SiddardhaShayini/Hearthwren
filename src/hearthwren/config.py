@@ -51,6 +51,10 @@ class HearthwrenConfig:
     )
     temperature: float = 0.2
     threads: int = 4
+    gemini_api_key: str = ""
+    openai_api_key: str = ""
+    ollama_host: str = ""
+    llm_provider: str = "auto"
 
     def validate(self) -> list[str]:
         """Validate config constraints specified in PLAN.md."""
@@ -101,6 +105,10 @@ def load_config(workspace_root: Path | None = None) -> HearthwrenConfig:
             safe_commands=list(data.get("safe_commands", HearthwrenConfig().safe_commands)),
             temperature=float(data.get("temperature", 0.2)),
             threads=int(data.get("threads", 4)),
+            gemini_api_key=str(data.get("gemini_api_key", "")),
+            openai_api_key=str(data.get("openai_api_key", "")),
+            ollama_host=str(data.get("ollama_host", "")),
+            llm_provider=str(data.get("llm_provider", "auto")),
         )
         return cfg
     except Exception:
@@ -129,6 +137,10 @@ output_line_ceiling = {config.output_line_ceiling}
 safe_commands = {config.safe_commands!r}
 temperature = {config.temperature}
 threads = {config.threads}
+gemini_api_key = "{config.gemini_api_key}"
+openai_api_key = "{config.openai_api_key}"
+ollama_host = "{config.ollama_host}"
+llm_provider = "{config.llm_provider}"
 """
     config_file.write_text(toml_content, encoding="utf-8")
     return config_file

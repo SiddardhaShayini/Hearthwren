@@ -13,8 +13,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from hearthwren.config import load_config
+from hearthwren.config import load_config, save_config
 from hearthwren.controller import AgentController
+from hearthwren.model_downloader import ModelDownloader
+from hearthwren.model_service import ModelService
 from hearthwren.resource_supervisor import ResourceSupervisor
 from hearthwren.subtasks import SequentialSubtaskRunner
 from hearthwren.workspace.detector import ProjectDetector
@@ -55,6 +57,9 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
 
     # Server-wide shared workspace root
     workspace_root: Path = Path.cwd().resolve()
+    download_in_progress: bool = False
+    download_percentage: int = 0
+    download_error: str | None = None
 
     def log_message(self, format: str, *args: Any) -> None:
         """Suppress standard HTTP request logging to keep console clean."""
@@ -154,6 +159,8 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
             git_st = git_svc.status()
             mem_mgr = MemoryManager(self.workspace_root)
             model_path = Path(cfg.model_path)
+            model_svc = ModelService(cfg, self.workspace_root)
+            active_engine = model_svc.get_active_provider()
 
             self._send_json({
                 "workspace": str(self.workspace_root),
@@ -174,6 +181,7 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
                 "memory_exists": mem_mgr.exists(),
                 "model_installed": model_path.is_file() and model_path.stat().st_size > 100_000_000,
                 "model_path": str(model_path),
+                "engine": active_engine,
             })
             return
 
@@ -293,6 +301,28 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
             })
             return
 
+        elif path == "/api/engine-status":
+            cfg = load_config(self.workspace_root)
+            model_svc = ModelService(cfg, self.workspace_root)
+            model_path = Path(cfg.model_path)
+            model_installed = model_path.is_file() and model_path.stat().st_size > 100_000_000
+            has_gemini = bool(cfg.gemini_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+            has_openai = bool(cfg.openai_api_key or os.environ.get("OPENAI_API_KEY"))
+            active_info = model_svc.get_active_provider()
+
+            self._send_json({
+                "model_installed": model_installed,
+                "model_name": model_path.name,
+                "model_path": str(model_path),
+                "has_gemini": has_gemini,
+                "has_openai": has_openai,
+                "llm_provider": cfg.llm_provider,
+                "active_engine": active_info,
+                "is_downloading": HearthwrenAPIHandler.download_in_progress,
+                "download_pct": HearthwrenAPIHandler.download_percentage,
+            })
+            return
+
         self.send_error(404, "Endpoint not found.")
 
     def do_POST(self) -> None:
@@ -406,6 +436,47 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
             indexer = WorkspaceIndexer(self.workspace_root)
             n = indexer.index_workspace(max_files=300)
             self._send_json({"success": True, "indexed_files": n})
+            return
+
+        elif path == "/api/save-api-key":
+            provider = body.get("provider", "gemini").lower()
+            key = body.get("key", "").strip()
+            llm_provider = body.get("llm_provider", "").strip()
+            cfg = load_config(self.workspace_root)
+            if provider == "gemini":
+                cfg.gemini_api_key = key
+            elif provider == "openai":
+                cfg.openai_api_key = key
+            if llm_provider:
+                cfg.llm_provider = llm_provider
+            save_config(cfg, self.workspace_root)
+            self._send_json({"success": True, "provider": provider})
+            return
+
+        elif path == "/api/download-model":
+            if HearthwrenAPIHandler.download_in_progress:
+                self._send_json({"success": False, "error": "Download already in progress."})
+                return
+
+            def _bg_download() -> None:
+                HearthwrenAPIHandler.download_in_progress = True
+                HearthwrenAPIHandler.download_percentage = 0
+                try:
+                    downloader = ModelDownloader()
+                    def _hook(current: int, total: int) -> None:
+                        if total > 0:
+                            HearthwrenAPIHandler.download_percentage = int((current / total) * 100)
+                    downloader.download_model(approved=True, progress_hook=_hook)
+                    HearthwrenAPIHandler.download_percentage = 100
+                except Exception as e:
+                    HearthwrenAPIHandler.download_error = str(e)
+                finally:
+                    HearthwrenAPIHandler.download_in_progress = False
+
+            import threading
+            t = threading.Thread(target=_bg_download, daemon=True)
+            t.start()
+            self._send_json({"success": True, "message": "Model download initiated in background."})
             return
 
         self.send_error(404, "Endpoint not found.")
