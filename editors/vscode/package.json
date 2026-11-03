@@ -22,6 +22,10 @@
         "title": "Hearthwren: Show Status & Resource Health"
       },
       {
+        "command": "hearthwren.doctor",
+        "title": "Hearthwren: Run Environment Diagnostics (Doctor)"
+      },
+      {
         "command": "hearthwren.plan",
         "title": "Hearthwren: Plan a Task"
       },

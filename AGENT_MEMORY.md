@@ -134,7 +134,7 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/workspace/indexer.py` | Lightweight SQLite FTS5 indexer for idle-time search |
 | `editors/vscode/` | Lightweight VS Code extension wrapper for status, planning, and verification |
 | `.github/workflows/ci.yml` | Multi-OS GitHub Actions CI workflow (Windows, Ubuntu, macOS) |
-| `tests/` | Comprehensive test suite (55 unit & adversarial tests covering all modules) |
+| `tests/` | Comprehensive test suite (58 unit & adversarial tests covering all modules) |
 | `.hearthwren/config.toml` | User-editable settings: context size, timeouts, safe commands, model path (gitignored) |
 | `.hearthwren/index.db` | SQLite FTS + symbol index (gitignored, auto-rebuilds) |
 | `.hearthwren/session.json` | Last task state for resumption (gitignored) |
@@ -160,7 +160,8 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | Push commits | `python -m hearthwren.cli push` |
 | Setup model weights | `python -m hearthwren.cli setup-model` |
 | Guide (explain steps) | `python -m hearthwren.cli guide "<question>"` |
-| Check status | `python -m hearthwren.cli status` |
+| Check status | `python -m hearthwren.cli status` (or `status --json`) |
+| Environment diagnostics | `python -m hearthwren.cli doctor` (or `doctor --json`) |
 | View config | `python -m hearthwren.cli config` |
 
 ---
@@ -543,6 +544,40 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
   - When `ContextCompressor` initialized `prompt_token_budget`, using `max(512, ...)` prevented low ceiling overrides in unit tests. Changed lower floor to `max(50, ...)` to support small bounded test fixtures.
 - **Lessons:**
   - Dedicated hierarchical prompt budgeting ensures that system prompts, policy rules, and user intent are never clipped, while lower priority tool output and conversation history are cleanly compressed first.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 15:46 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Implement `hwren doctor` environment diagnostics, add `--json` output flags, fix Rich markup escaping on unified diffs, build distributable wheel, write User Guide, and expand test suite to 58 tests
+- **Phase:** Phase 3 & Distribution Readiness
+- **Files read:**
+  - `src/hearthwren/cli.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `tests/test_cli_commands.py`
+- **Files written/modified:**
+  - `src/hearthwren/cli.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `tests/test_cli_commands.py`
+  - `docs/user_guide.md`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `pip wheel --no-deps --no-build-isolation -w dist .` (verified wheel build: `hearthwren-0.1.0-py3-none-any.whl`, 58.4 KB)
+  - `python -m zipfile -l dist/hearthwren-0.1.0-py3-none-any.whl` (verified all 20 package modules and entry points present)
+  - `python -m hearthwren.cli doctor` (verified environment diagnostics output)
+  - `python -m hearthwren.cli doctor --json` (verified structured JSON output)
+  - `python -m hearthwren.cli status --json` (verified structured JSON status)
+  - `pytest -v` (ran full test suite: all 58 tests passed in 3.43s)
+- **Outcome:** Success — Diagnostic checks, JSON output mode, Rich markup safety in diffs, comprehensive user guide, and 58 passing tests verified.
+- **Mistakes / wrong assumptions:**
+  - When printing unified diffs inside `rich.panel.Panel(diff_text)`, Rich interpreted square brackets in code diffs (e.g. `[/{status_style}]`) as Rich BBCode markup tags and threw a `MarkupError`. Wrapped diff text in `rich.text.Text(diff_text)` to disable markup interpretation.
+  - When using `console.print(json.dumps(...))` in `--json` mode, Rich console word-wrapped long paths and injected newlines, breaking `json.loads`. Replaced with raw stdout `print(json.dumps(...))`.
+- **Lessons:**
+  - Diffs and raw code must always be passed to Rich as plain `Text` objects or with `markup=False`.
+  - Machine-readable JSON CLI outputs must use standard `print()` rather than styled console streams to prevent terminal reformatting.
 - **Approved by user:** Yes
 
 ---

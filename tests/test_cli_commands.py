@@ -46,3 +46,32 @@ def test_cli_diff():
 def test_cli_resume():
     result = runner.invoke(app, ["resume"])
     assert result.exit_code == 0
+
+
+def test_cli_status_json():
+    import json
+    result = runner.invoke(app, ["status", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "project" in data
+    assert "resources" in data
+    assert "available_ram_gb" in data["resources"]
+
+
+def test_cli_doctor():
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 0
+    assert "Hearthwren Environment Diagnostics (Doctor)" in result.stdout
+    assert "Python Runtime" in result.stdout
+    assert "Memory (RAM)" in result.stdout
+
+
+def test_cli_doctor_json():
+    import json
+    result = runner.invoke(app, ["doctor", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert "checks" in data
+    assert any(c["category"] == "Python Runtime" for c in data["checks"])
+    assert any(c["category"] == "Memory (RAM)" for c in data["checks"])
+

@@ -6,6 +6,8 @@ Provides fast, readable, local-first commands for resource-disciplined coding.
 
 from __future__ import annotations
 
+import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -15,6 +17,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 from hearthwren import __version__, __product_name__, __cli_name__
 from hearthwren.config import (
@@ -103,7 +106,9 @@ def cmd_init(
 
 
 @app.command("status")
-def cmd_status() -> None:
+def cmd_status(
+    as_json: bool = typer.Option(False, "--json", help="Output status as structured JSON")
+) -> None:
     """Show project, Git, memory, and hardware status."""
     root = Path.cwd()
     cfg = load_config(root)
@@ -116,6 +121,46 @@ def cmd_status() -> None:
     # Detected project characteristics
     detector = ProjectDetector(root)
     proj_summary = detector.detect()
+
+    # Pre-flight check verdict
+    ok, msg = supervisor.preflight_ram_check()
+
+    # Git status
+    git_svc = GitService(root)
+    git_st = git_svc.status()
+
+    # Memory file
+    mem_mgr = MemoryManager(root)
+    memory_exists = mem_mgr.exists()
+    stale = mem_mgr.check_stale_entries() if memory_exists else []
+
+    if as_json:
+        payload = {
+            "project": {
+                "name": root.name,
+                "primary_language": proj_summary.primary_language,
+                "manifests": proj_summary.manifests,
+                "test_framework": proj_summary.test_framework,
+                "total_source_files": proj_summary.total_source_files,
+                "entry_points": proj_summary.entry_points,
+            },
+            "resources": {
+                "total_system_ram_gb": sys_mem["total_gb"],
+                "available_ram_gb": sys_mem["available_gb"],
+                "ram_ceiling_gb": cfg.ram_ceiling_gb,
+                "headroom_gb": cfg.free_ram_headroom_gb,
+                "process_rss_mb": proc_mem["rss_mb"],
+                "preflight_ok": ok,
+                "preflight_message": msg,
+            },
+            "git": git_st,
+            "memory": {
+                "exists": memory_exists,
+                "stale_entries": stale,
+            },
+        }
+        print(json.dumps(payload, indent=2))
+        return
 
     proj_table = Table(title="Detected Project Structure", show_header=True)
     proj_table.add_column("Property", style="cyan")
@@ -141,16 +186,11 @@ def cmd_status() -> None:
 
     console.print(mem_table)
 
-    # Pre-flight check verdict
-    ok, msg = supervisor.preflight_ram_check()
     if ok:
         console.print(f"[bold green][OK][/bold green] {msg}")
     else:
         console.print(f"[bold red][X][/bold red] {msg}")
 
-    # Git status
-    git_svc = GitService(root)
-    git_st = git_svc.status()
     console.print("\n[bold]Version Control:[/bold]")
     if git_st["is_repo"]:
         console.print(f"  Branch: [cyan]{git_st['branch']}[/cyan] (Clean: {git_st['clean']})")
@@ -163,11 +203,8 @@ def cmd_status() -> None:
     else:
         console.print("  [yellow]No git repository detected.[/yellow]")
 
-    # Memory file
-    mem_mgr = MemoryManager(root)
     console.print("\n[bold]Agent Memory:[/bold]")
-    if mem_mgr.exists():
-        stale = mem_mgr.check_stale_entries()
+    if memory_exists:
         console.print("  AGENT_MEMORY.md: [green]Present[/green]")
         if stale:
             console.print(f"  [yellow]Stale reference flags:[/yellow] {len(stale)}")
@@ -289,7 +326,7 @@ def cmd_diff(
         console.print("[cyan]No changes detected in working tree.[/cyan]")
         return
     mode = "Staged" if staged else "Unstaged"
-    console.print(Panel(diff_text, title=f"Git Diff ({mode})", expand=False))
+    console.print(Panel(Text(diff_text), title=f"Git Diff ({mode})", expand=False))
 
 
 @app.command("commit")
@@ -404,6 +441,125 @@ def cmd_config() -> None:
     console.print(table)
 
 
+@app.command("doctor")
+def cmd_doctor(
+    as_json: bool = typer.Option(False, "--json", help="Output doctor diagnostics as structured JSON")
+) -> None:
+    """Run an exhaustive diagnostic check of the local environment and hardware."""
+    root = Path.cwd()
+    cfg = load_config(root)
+    supervisor = ResourceSupervisor(cfg, root)
+
+    sys_mem = supervisor.get_system_memory()
+    proc_mem = supervisor.get_process_memory()
+
+    # 1. Python runtime
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    py_ok = sys.version_info >= (3, 11)
+
+    # 2. RAM check
+    ram_ok = sys_mem["available_gb"] >= 1.5
+
+    # 3. Model weights
+    model_path = Path(cfg.model_path)
+    model_exists = model_path.exists()
+    model_size_gb = round(model_path.stat().st_size / (1024**3), 2) if model_exists else 0.0
+
+    # 4. Engine
+    llama_available = False
+    llama_ver = None
+    try:
+        import llama_cpp
+        llama_available = True
+        llama_ver = getattr(llama_cpp, "__version__", "installed")
+    except ImportError:
+        llama_available = False
+
+    # 5. Search tools
+    rg_bin = shutil.which("rg")
+
+    # 6. Git
+    git_bin = shutil.which("git")
+    git_svc = GitService(root)
+    is_repo = git_svc.is_git_repo()
+
+    # 7. Project & Memory
+    mem_mgr = MemoryManager(root)
+    mem_exists = mem_mgr.exists()
+
+    checks = [
+        {
+            "category": "Python Runtime",
+            "name": f"Python {py_ver}",
+            "status": "PASS" if py_ok else "FAIL",
+            "details": f"Executable: {sys.executable}" if py_ok else "Requires Python >= 3.11",
+        },
+        {
+            "category": "Memory (RAM)",
+            "name": f"{sys_mem['available_gb']} GB free / {sys_mem['total_gb']} GB total",
+            "status": "PASS" if sys_mem["available_gb"] >= 2.0 else ("WARN" if ram_ok else "FAIL"),
+            "details": f"Ceiling: {cfg.ram_ceiling_gb} GB, Headroom: {cfg.free_ram_headroom_gb} GB",
+        },
+        {
+            "category": "Model Weights",
+            "name": model_path.name,
+            "status": "PASS" if model_exists else "WARN",
+            "details": f"Size: {model_size_gb} GB at {model_path}" if model_exists else "Missing (run `hwren setup-model` to download)",
+        },
+        {
+            "category": "Inference Engine",
+            "name": "llama-cpp-python",
+            "status": "PASS" if llama_available else "INFO",
+            "details": f"Version {llama_ver}" if llama_available else "Deterministic offline fallback active (CPU)",
+        },
+        {
+            "category": "Code Search",
+            "name": "ripgrep (rg)",
+            "status": "PASS" if rg_bin else "INFO",
+            "details": f"Found at {rg_bin}" if rg_bin else "Pure-Python regex search active",
+        },
+        {
+            "category": "Version Control",
+            "name": "Git CLI",
+            "status": "PASS" if git_bin else "WARN",
+            "details": f"Found at {git_bin} (Repo: {is_repo})" if git_bin else "Git binary not found on PATH",
+        },
+        {
+            "category": "Project Memory",
+            "name": "AGENT_MEMORY.md",
+            "status": "PASS" if mem_exists else "WARN",
+            "details": "Present in workspace root" if mem_exists else "Missing (run `hwren init` to scaffold)",
+        },
+    ]
+
+    all_pass = all(c["status"] in ("PASS", "INFO") for c in checks)
+
+    if as_json:
+        payload = {
+            "all_passed": all_pass,
+            "checks": checks,
+            "hardware_target": "CPU-only, 8 GB RAM, <= 3.5 GB ceiling",
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    table = Table(title="Hearthwren Environment Diagnostics (Doctor)", show_header=True)
+    table.add_column("Category", style="cyan")
+    table.add_column("Component", style="white")
+    table.add_column("Status", style="bold")
+    table.add_column("Details", style="dim")
+
+    for c in checks:
+        status_style = "green" if c["status"] == "PASS" else ("yellow" if c["status"] in ("WARN", "INFO") else "red")
+        table.add_row(c["category"], c["name"], f"[{status_style}][{c['status']}][/{status_style}]", c["details"])
+
+    console.print(table)
+    if all_pass:
+        console.print("\n[bold green][OK] Hearthwren environment is healthy and ready for local development.[/bold green]")
+    else:
+        console.print("\n[bold yellow]! Some checks produced warnings. See suggestions above.[/bold yellow]")
+
+
 def interactive_repl() -> None:
     """Interactive chat REPL mode with multi-turn support and slash commands."""
     console.print(
@@ -448,6 +604,7 @@ def interactive_repl() -> None:
                 help_table.add_row("/diff", "View git diff of workspace changes")
                 help_table.add_row("/commit <msg>", "Stage and commit changes with user confirmation")
                 help_table.add_row("/status", "Show resource health, project structure, and git status")
+                help_table.add_row("/doctor", "Run diagnostic environment and hardware checks")
                 help_table.add_row("/resume", "Resume last active task from session.json")
                 help_table.add_row("/index", "Run idle-time SQLite FTS indexing over source files")
                 help_table.add_row("/config", "View current configuration settings")
@@ -471,6 +628,8 @@ def interactive_repl() -> None:
                 cmd_verify()
             elif cmd_lower in ("/status", "status"):
                 cmd_status()
+            elif cmd_lower in ("/doctor", "doctor"):
+                cmd_doctor()
             elif cmd_lower in ("/resume", "resume"):
                 cmd_resume()
             elif cmd_lower in ("/diff", "diff"):

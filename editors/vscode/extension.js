@@ -63,6 +63,12 @@ function activate(context) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('hearthwren.doctor', () => {
+            runHwrenCommand('doctor', 'Environment Diagnostics (Doctor)');
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('hearthwren.plan', async () => {
             const task = await vscode.window.showInputBox({
                 prompt: 'Describe the task to plan (no code will be written)',
