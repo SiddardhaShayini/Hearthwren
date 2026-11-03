@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hearthwren"
+version = "0.1.0"
+description = "Local-first, resource-disciplined AI coding agent for CPU-only laptops."
+readme = "PLAN.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "Hearthwren Team"}]
+keywords = ["ai", "coding-agent", "local-llm", "cpu-only", "llama-cpp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "psutil>=5.9.0",
+]
+
+[project.optional-dependencies]
+llama = [
+    "llama-cpp-python>=0.2.0",
+]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+hwren = "hearthwren.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
