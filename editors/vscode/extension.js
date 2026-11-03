@@ -127,6 +127,12 @@ function activate(context) {
             runHwrenCommand('index', 'Rebuilding SQLite Search Index');
         })
     );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('hearthwren.memory', () => {
+            runHwrenCommand('memory', 'Inspect Project Memory');
+        })
+    );
 }
 
 function deactivate() {

@@ -134,7 +134,7 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/workspace/indexer.py` | Lightweight SQLite FTS5 indexer for idle-time search |
 | `editors/vscode/` | Lightweight VS Code extension wrapper for status, planning, and verification |
 | `.github/workflows/ci.yml` | Multi-OS GitHub Actions CI workflow (Windows, Ubuntu, macOS) |
-| `tests/` | Comprehensive test suite (62 unit & adversarial tests covering all modules) |
+| `tests/` | Comprehensive test suite (67 unit & adversarial tests covering all modules) |
 | `.hearthwren/config.toml` | User-editable settings: context size, timeouts, safe commands, model path (gitignored) |
 | `.hearthwren/index.db` | SQLite FTS + symbol index (gitignored, auto-rebuilds) |
 | `.hearthwren/session.json` | Last task state for resumption (gitignored) |
@@ -164,6 +164,7 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | Environment diagnostics | `python -m hearthwren.cli doctor` (or `doctor --json`) |
 | Rebuild search index | `python -m hearthwren.cli index` (or `index --json`) |
 | Search code & symbols | `python -m hearthwren.cli search "<query>"` (or `search --json`) |
+| Inspect project memory | `python -m hearthwren.cli memory` (or `memory --json`) |
 | View config | `python -m hearthwren.cli config` |
 
 ---
@@ -612,6 +613,38 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 - **Mistakes / wrong assumptions:** None.
 - **Lessons:**
   - Integrating SQLite FTS5 with lightweight regex-based symbol detection gives an instant, zero-dependency symbol navigation experience that costs < 1 MB disk and zero background RAM.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 16:07 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Connect `SequentialSubtaskRunner` to CLI (`hwren run --multi-phase`), add `hwren memory` command, add VS Code command, and expand test suite to 67 tests
+- **Phase:** Phase 3 & Multi-Phase Pipeline Integration
+- **Files read:**
+  - `src/hearthwren/subtasks.py`
+  - `src/hearthwren/cli.py`
+  - `src/hearthwren/workspace/memory.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `tests/test_cli_commands.py`
+- **Files written/modified:**
+  - `src/hearthwren/cli.py`
+  - `editors/vscode/package.json`
+  - `editors/vscode/extension.js`
+  - `docs/user_guide.md`
+  - `tests/test_cli_commands.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python -m hearthwren.cli run "Inspect project" --json` (verified JSON execution output)
+  - `python -m hearthwren.cli run "Plan and verify" --multi-phase --json` (verified 5-phase sequential pipeline)
+  - `python -m hearthwren.cli memory` (verified section parsing and stale reference detection)
+  - `pytest -v` (ran full test suite: all 67 tests passed in 3.62s)
+- **Outcome:** Success — Multi-phase sequential task execution, memory inspection, and isolated test fixtures verified.
+- **Mistakes / wrong assumptions:**
+  - In unit tests, executing `hwren run` from the project root caused `execute_task` to invoke `pytest` which recursively invoked `test_cli_commands.py` and forked endlessly. Isolated CLI execution tests in a clean `tmp_path` fixture via `monkeypatch.chdir(tmp_path)` to ensure zero recursive forks.
+- **Lessons:**
+  - CLI integration tests that execute project test runners must always run inside isolated fixture directories to prevent recursive test loop storms.
 - **Approved by user:** Yes
 
 ---

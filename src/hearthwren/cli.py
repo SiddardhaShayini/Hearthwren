@@ -286,16 +286,71 @@ def cmd_verify(
 @app.command("run")
 def cmd_run(
     task: str = typer.Argument(..., help="Task description to execute"),
+    multi_phase: bool = typer.Option(False, "--multi-phase", "-m", help="Run 5 sequential role-scoped passes (Understand, Test Spec, Implement, Review, Report)"),
+    as_json: bool = typer.Option(False, "--json", help="Output task results as structured JSON"),
 ) -> None:
     """Execute a task with sequential approval gates and verification."""
-    console.print(Panel(f"[bold green]Executing Task:[/bold green] {task}", expand=False))
+    if multi_phase:
+        from hearthwren.subtasks import SequentialSubtaskRunner
+        runner = SequentialSubtaskRunner()
+        multi_res = runner.run_all_phases(task)
+
+        if as_json:
+            print(json.dumps({
+                "task": multi_res.task_description,
+                "success": multi_res.success,
+                "phases": [
+                    {
+                        "phase": p.phase.value,
+                        "success": p.success,
+                        "summary": p.summary,
+                        "actions": p.actions,
+                    }
+                    for p in multi_res.phase_results
+                ],
+                "final_report": multi_res.final_report,
+            }, indent=2))
+            return
+
+        console.print(Panel(
+            f"[bold green]Executing Multi-Phase Task:[/bold green] {task}\n"
+            f"[dim]Running 5 sequential passes: Understand -> Test Spec -> Implement -> Review -> Report[/dim]",
+            expand=False,
+        ))
+
+        for p in multi_res.phase_results:
+            status_badge = "[bold green][PASS][/bold green]" if p.success else "[bold red][FAIL][/bold red]"
+            console.print(f"\n{status_badge} [bold cyan]Phase {p.phase.value}:[/bold cyan]")
+            for a in p.actions:
+                console.print(f"  + {a}")
+            console.print(f"  Summary: {p.summary[:300]}...")
+
+        console.print(f"\n[bold green]Multi-phase execution complete.[/bold green]")
+        return
+
     controller = AgentController()
     res = controller.execute_task(task)
 
     if not res.get("success"):
-        console.print(f"[bold red]Task aborted:[/bold red] {res.get('error')}")
+        if as_json:
+            print(json.dumps(res, indent=2))
+        else:
+            console.print(f"[bold red]Task aborted:[/bold red] {res.get('error')}")
         raise typer.Exit(code=1)
 
+    if as_json:
+        payload = {
+            "task": res.get("task"),
+            "success": res.get("success"),
+            "state": res.get("state").value if hasattr(res.get("state"), "value") else str(res.get("state")),
+            "plan": res.get("plan"),
+            "actions_taken": res.get("actions_taken", []),
+            "recovery_proposal": res.get("recovery_proposal"),
+        }
+        print(json.dumps(payload, indent=2))
+        return
+
+    console.print(Panel(f"[bold green]Executing Task:[/bold green] {task}", expand=False))
     console.print("\n[bold]Plan Generated:[/bold]")
     console.print(res["plan"])
     console.print("\n[bold]Actions Taken:[/bold]")
@@ -305,6 +360,48 @@ def cmd_run(
         console.print("\n[bold yellow]Recovery Guidance:[/bold yellow]")
         console.print(res["recovery_proposal"])
     console.print("\n[bold green]Task execution cycle complete.[/bold green]")
+
+
+@app.command("memory")
+def cmd_memory(
+    as_json: bool = typer.Option(False, "--json", help="Output memory information as structured JSON"),
+) -> None:
+    """Inspect and check the in-repo AGENT_MEMORY.md file."""
+    mem_mgr = MemoryManager()
+    if not mem_mgr.exists():
+        if as_json:
+            print(json.dumps({"exists": False, "error": "AGENT_MEMORY.md missing"}, indent=2))
+        else:
+            console.print("[yellow]AGENT_MEMORY.md does not exist in workspace. Run `hwren init` to create it.[/yellow]")
+        return
+
+    sections = mem_mgr.parse_sections()
+    stale = mem_mgr.check_stale_entries()
+
+    if as_json:
+        print(json.dumps({
+            "exists": True,
+            "path": str(mem_mgr.memory_path),
+            "sections": list(sections.keys()),
+            "stale_entries": stale,
+        }, indent=2))
+        return
+
+    table = Table(title="AGENT_MEMORY.md Sections", show_header=True)
+    table.add_column("Section", style="cyan")
+    table.add_column("Snippet", style="white")
+
+    for k, v in sections.items():
+        first_line = v.strip().splitlines()[0] if v.strip() else "(Empty)"
+        table.add_row(k, first_line[:80])
+    console.print(table)
+
+    if stale:
+        console.print(f"\n[bold yellow]Stale References Detected ({len(stale)}):[/bold yellow]")
+        for s in stale:
+            console.print(f"  * {s}")
+    else:
+        console.print("\n[bold green][OK] All referenced files verified on disk.[/bold green]")
 
 
 @app.command("resume")
@@ -683,6 +780,7 @@ def interactive_repl() -> None:
                 help_table.add_row("/commit <msg>", "Stage and commit changes with user confirmation")
                 help_table.add_row("/status", "Show resource health, project structure, and git status")
                 help_table.add_row("/doctor", "Run diagnostic environment and hardware checks")
+                help_table.add_row("/memory", "Inspect AGENT_MEMORY.md sections and stale entries")
                 help_table.add_row("/search <query>", "Search symbols and full-text with SQLite FTS")
                 help_table.add_row("/index", "Rebuild SQLite FTS index over workspace files")
                 help_table.add_row("/resume", "Resume last active task from session.json")
@@ -709,6 +807,8 @@ def interactive_repl() -> None:
                 cmd_status()
             elif cmd_lower in ("/doctor", "doctor"):
                 cmd_doctor()
+            elif cmd_lower in ("/memory", "memory"):
+                cmd_memory()
             elif cmd_lower in ("/resume", "resume"):
                 cmd_resume()
             elif cmd_lower in ("/diff", "diff"):

@@ -108,3 +108,51 @@ def test_cli_search_json():
     assert "symbols" in data
 
 
+def test_cli_run_json(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    import json
+    result = runner.invoke(app, ["run", "Inspect codebase", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["success"] is True
+    assert "plan" in data
+    assert "actions_taken" in data
+
+
+def test_cli_run_multi_phase(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(app, ["run", "Plan and verify project", "--multi-phase"])
+    assert result.exit_code == 0
+    assert "Multi-Phase Task" in result.stdout
+    assert "Phase UNDERSTAND" in result.stdout
+    assert "Phase REPORT" in result.stdout
+
+
+def test_cli_run_multi_phase_json(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    import json
+    result = runner.invoke(app, ["run", "Plan and verify project", "--multi-phase", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["success"] is True
+    assert "phases" in data
+    assert len(data["phases"]) == 5
+
+
+def test_cli_memory():
+    result = runner.invoke(app, ["memory"])
+    assert result.exit_code == 0
+    assert "AGENT_MEMORY.md Sections" in result.stdout
+
+
+def test_cli_memory_json():
+    import json
+    result = runner.invoke(app, ["memory", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["exists"] is True
+    assert "sections" in data
+    assert "stale_entries" in data
+
+
+

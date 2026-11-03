@@ -52,6 +52,10 @@
       {
         "command": "hearthwren.index",
         "title": "Hearthwren: Rebuild SQLite Search Index"
+      },
+      {
+        "command": "hearthwren.memory",
+        "title": "Hearthwren: View AGENT_MEMORY.md & Stale Entries"
       }
     ]
   }

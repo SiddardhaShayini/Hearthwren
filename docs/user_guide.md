@@ -92,14 +92,23 @@ Explains architectural steps and recommended commands without modifying files.
 ### Task Execution
 ```bash
 hwren run "Implement password hashing with bcrypt"
+hwren run "Design user profile schema" --multi-phase
+hwren run "Inspect codebase" --json
 ```
-Enters the bounded execution state machine: `Understand -> Plan -> Approve -> Act -> Verify -> Report`. File modifications require approval and generate `.hearthwren.bak` backups.
+Enters the bounded execution state machine: `Understand -> Plan -> Approve -> Act -> Verify -> Report`. When `--multi-phase` is passed, runs 5 sequential passes (Understand, Test Spec, Implement, Review, Report). File modifications require approval and generate `.hearthwren.bak` backups.
 
 ### Session Resumption
 ```bash
 hwren resume
 ```
 Restores task context, repair count, and actions taken from `.hearthwren/session.json` if execution was interrupted.
+
+### Project Memory Inspection
+```bash
+hwren memory
+hwren memory --json
+```
+Inspects sections and flags stale file references in `AGENT_MEMORY.md`.
 
 ### Test Verification
 ```bash
