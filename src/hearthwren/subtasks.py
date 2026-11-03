@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from hearthwren.config import HearthwrenConfig
-from hearthwren.controller import AgentController
+from hearthwren.controller import AgentController, parse_file_creation_task
 from hearthwren.model_service import LocalModelService
 from hearthwren.resource_supervisor import ResourceSupervisor
 from hearthwren.tool_broker import ToolBroker
@@ -119,6 +119,18 @@ class SequentialSubtaskRunner:
         if phase == TaskPhase.UNDERSTAND:
             files_res = self.tool_broker.execute_tool("list_files", {})
             actions.append(f"Discovered {files_res.get('count', 0)} files")
+        elif phase == TaskPhase.IMPLEMENT:
+            target_file, topic = parse_file_creation_task(task_description)
+            if target_file:
+                content = self.controller.synthesize_file_content(target_file, topic or target_file, task_description)
+                write_res = self.tool_broker.execute_tool(
+                    "write_file",
+                    {"path": target_file, "content": content, "approved": True},
+                )
+                if write_res.get("success"):
+                    actions.append(f"Created file '{target_file}' ({len(content)} bytes)")
+                else:
+                    actions.append(f"File write failed: {write_res.get('error')}")
         elif phase == TaskPhase.REVIEW_VERIFY:
             test_res = self.tool_broker.execute_tool("run_tests", {})
             actions.append(f"Executed tests: passed={test_res.get('passed', False)}")

@@ -32,9 +32,68 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnApplyRepo = document.getElementById("btn-apply-repo");
   const modalRepoInput = document.getElementById("modal-repo-input");
 
+  let currentBrowseParent = null;
+
+  async function loadBrowseDirectory(targetDir) {
+    const drivesContainer = document.getElementById("browse-drives-container");
+    const subdirsContainer = document.getElementById("browse-subdirs-container");
+    if (!subdirsContainer) return;
+
+    subdirsContainer.innerHTML = '<span style="font-size: 12px; color: var(--text-dim);">Loading directories...</span>';
+
+    try {
+      const url = targetDir ? `/api/browse?dir=${encodeURIComponent(targetDir)}` : "/api/browse";
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      modalRepoInput.value = data.current;
+      currentBrowseParent = data.parent;
+
+      // Update parent button state
+      const btnParent = document.getElementById("btn-browse-parent");
+      if (btnParent) {
+        btnParent.disabled = !data.parent;
+      }
+
+      // Render Drives
+      if (drivesContainer && data.drives && data.drives.length > 0) {
+        drivesContainer.innerHTML = "";
+        data.drives.forEach(drive => {
+          const btn = document.createElement("button");
+          btn.className = "drive-chip";
+          btn.textContent = `💾 ${drive}`;
+          btn.addEventListener("click", () => loadBrowseDirectory(drive));
+          drivesContainer.appendChild(btn);
+        });
+      }
+
+      // Render Subdirectories
+      subdirsContainer.innerHTML = "";
+      if (data.subdirectories && data.subdirectories.length > 0) {
+        data.subdirectories.forEach(sub => {
+          const chip = document.createElement("div");
+          chip.className = "folder-chip";
+          chip.innerHTML = `<span>📁</span> <span>${sub}</span>`;
+          chip.addEventListener("click", () => {
+            const sep = data.current.endsWith("\\") || data.current.endsWith("/") ? "" : "\\";
+            const nextPath = `${data.current}${sep}${sub}`;
+            loadBrowseDirectory(nextPath);
+          });
+          subdirsContainer.appendChild(chip);
+        });
+      } else {
+        subdirsContainer.innerHTML = '<span style="font-size: 12px; color: var(--text-dim); padding: 4px 0;">(No subdirectories found)</span>';
+      }
+    } catch (err) {
+      subdirsContainer.innerHTML = `<span style="font-size: 12px; color: var(--danger);">Error loading directory: ${err.message}</span>`;
+    }
+  }
+
   function openModal() {
     repoModal.classList.add("open");
     modalRepoInput.focus();
+    loadBrowseDirectory(modalRepoInput.value.trim());
   }
 
   function closeModal() {
@@ -44,6 +103,42 @@ document.addEventListener("DOMContentLoaded", () => {
   btnOpenRepoModal.addEventListener("click", openModal);
   btnCloseRepoModal.addEventListener("click", closeModal);
   btnCancelRepo.addEventListener("click", closeModal);
+
+  // Up to parent button
+  const btnBrowseParent = document.getElementById("btn-browse-parent");
+  if (btnBrowseParent) {
+    btnBrowseParent.addEventListener("click", () => {
+      if (currentBrowseParent) {
+        loadBrowseDirectory(currentBrowseParent);
+      }
+    });
+  }
+
+  // Native Browse Dialog Button
+  const btnNativeBrowse = document.getElementById("btn-native-browse");
+  if (btnNativeBrowse) {
+    btnNativeBrowse.addEventListener("click", async () => {
+      btnNativeBrowse.textContent = "⏳ Browsing...";
+      btnNativeBrowse.disabled = true;
+      try {
+        const res = await fetch("/api/browse-dialog", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current: modalRepoInput.value.trim() }),
+        });
+        const data = await res.json();
+        if (data.success && data.path) {
+          modalRepoInput.value = data.path;
+          loadBrowseDirectory(data.path);
+        }
+      } catch (err) {
+        console.warn("Browse dialog error:", err);
+      } finally {
+        btnNativeBrowse.textContent = "📂 Browse...";
+        btnNativeBrowse.disabled = false;
+      }
+    });
+  }
 
   btnApplyRepo.addEventListener("click", async () => {
     const newPath = modalRepoInput.value.trim();
@@ -135,10 +230,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
       if (data.success) {
         let details = `Plan:\n${data.plan}\n\nActions Taken:\n${(data.actions_taken || []).map(a => '  + ' + a).join('\n')}`;
+        if (data.file_created) {
+          details += `\n\n📄 File Created: ${data.file_created}`;
+        }
         if (data.recovery_proposal) {
           details += `\n\nRecovery Guidance:\n${data.recovery_proposal}`;
         }
         appendAgentLog(details, "Task Complete");
+        pollStatus();
       } else {
         appendAgentLog(`Error: ${data.error || 'Task aborted'}`, "Task Failed");
       }
@@ -167,6 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
           text += `[Phase ${p.phase}]: ${p.success ? 'PASS' : 'FAIL'}\n${p.summary}\n\n`;
         });
         appendAgentLog(text, "5-Phase Pipeline Succeeded");
+        pollStatus();
       } else {
         appendAgentLog(`Pipeline error: ${data.final_report}`, "Pipeline Failed");
       }

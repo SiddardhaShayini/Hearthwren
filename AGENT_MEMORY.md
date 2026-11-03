@@ -749,4 +749,41 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 
 ---
 
+### Session — 2026-11-03 18:02 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Add native OS Folder Browse button & interactive in-modal folder navigator, connect end-to-end file creation to `execute_task` and `SequentialSubtaskRunner` (supporting prompts like "create md file for ..."), harden `git_service.py` UTF-8 decoding, and expand test suite to 87 tests
+- **Phase:** Phase 3 & Desktop UI Polish / Task Execution Fidelity
+- **Files read:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/subtasks.py`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/app.js`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/workspace/git_service.py`
+- **Files written/modified:**
+  - `src/hearthwren/controller.py`
+  - `src/hearthwren/subtasks.py`
+  - `src/hearthwren/workspace/git_service.py`
+  - `src/hearthwren/cli.py`
+  - `src/hearthwren/gui/server.py`
+  - `src/hearthwren/gui/static/index.html`
+  - `src/hearthwren/gui/static/styles.css`
+  - `src/hearthwren/gui/static/app.js`
+  - `tests/test_controller.py`
+  - `tests/test_subtasks.py`
+  - `tests/test_gui.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `pytest tests/test_gui.py -v` (ran 17 GUI integration tests: 17 passed in 0.54s)
+  - `pytest -v` (ran full test suite: all 87 tests passed in 3.55s)
+- **Outcome:** Success — Native Windows folder picker (`tkinter.filedialog`) and interactive in-modal folder navigator added for repository selection; file creation intent parser and synthesis connected so prompts like "create md file for ..." actually generate and write the file to disk; UTF-8 decoding in `git_service.py` hardened against Windows cp1252 exceptions.
+- **Mistakes / wrong assumptions:**
+  - `execute_task` previously only generated an execution plan and ran read-only inspections (`list_files`, `run_tests`) without actually synthesizing or writing files requested by the user. Added `parse_file_creation_task` and `synthesize_file_content` to execute real file writes via `tool_broker.execute_tool("write_file")`.
+  - On Windows, `subprocess.run(text=True)` defaults to `cp1252` encoding instead of UTF-8, crashing when git diffs contain non-ASCII bytes. Fixed by specifying `encoding="utf-8", errors="replace"`.
+- **Lessons:**
+  - When users submit action prompts ("create file ..."), the agent controller must translate intent into real tool execution rather than stopping after generating a plan.
+- **Approved by user:** Yes
+
+---
+
 <!-- END OF AGENT_MEMORY.md — Append new session entries above this line -->

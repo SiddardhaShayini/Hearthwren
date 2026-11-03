@@ -25,6 +25,31 @@ from hearthwren.workspace.memory import MemoryManager
 STATIC_DIR = Path(__file__).parent / "static"
 
 
+def pick_folder_dialog(initial_dir: str | None = None) -> str:
+    """Open a native Windows/macOS/Linux folder picker dialog."""
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        # In automated test environment, avoid blocking headless runs
+        return str(Path(initial_dir).resolve()) if initial_dir else os.getcwd()
+
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        start_dir = initial_dir or os.getcwd()
+        if not Path(start_dir).is_dir():
+            start_dir = os.getcwd()
+        chosen = filedialog.askdirectory(
+            initialdir=start_dir,
+            title="Select Working Repository for Hearthwren",
+        )
+        root.destroy()
+        return str(Path(chosen).resolve()) if chosen else ""
+    except Exception:
+        return ""
+
+
 class HearthwrenAPIHandler(BaseHTTPRequestHandler):
     """Handles static assets and JSON API routes for Hearthwren Desktop UI."""
 
@@ -239,8 +264,19 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
 
         elif path == "/api/browse":
             # List sibling/child directories for repo selection
-            current = self.workspace_root
+            req_dir = query.get("dir", [""])[0].strip()
+            current = Path(req_dir).resolve() if req_dir and Path(req_dir).is_dir() else self.workspace_root
             parent = current.parent
+
+            # Detect system drive roots on Windows
+            drives: list[str] = []
+            if os.name == "nt":
+                import string
+                for letter in string.ascii_uppercase:
+                    drive_p = Path(f"{letter}:\\")
+                    if drive_p.is_dir():
+                        drives.append(str(drive_p))
+
             subdirs: list[str] = []
             try:
                 for entry in current.iterdir():
@@ -248,10 +284,12 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
                         subdirs.append(entry.name)
             except Exception:
                 pass
+
             self._send_json({
                 "current": str(current),
                 "parent": str(parent) if parent != current else None,
-                "subdirectories": sorted(subdirs)[:50],
+                "drives": drives,
+                "subdirectories": sorted(subdirs)[:100],
             })
             return
 
@@ -262,6 +300,16 @@ class HearthwrenAPIHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         body = self._read_body_json()
+
+        if path == "/api/browse-dialog":
+            current_str = body.get("current", str(self.workspace_root))
+            chosen = pick_folder_dialog(current_str)
+            if chosen:
+                self._send_json({"success": True, "path": chosen, "canceled": False})
+            else:
+                self._send_json({"success": False, "canceled": True, "path": current_str})
+            return
+
 
         if path == "/api/set-repo":
             new_path_str = body.get("path", "").strip()

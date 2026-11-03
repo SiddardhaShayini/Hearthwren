@@ -493,3 +493,60 @@ body {
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* Folder Navigator */
+.browse-explorer-card {
+  background-color: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.browse-subdirs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-top: 4px;
+}
+
+.folder-chip {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.folder-chip:hover {
+  border-color: var(--accent);
+  background-color: var(--bg-sidebar);
+  color: var(--accent);
+}
+
+.drive-chip {
+  background-color: var(--bg-card);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.drive-chip:hover {
+  background-color: var(--accent);
+  color: #fff;
+}
+

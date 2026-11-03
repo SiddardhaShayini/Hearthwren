@@ -45,3 +45,33 @@ def test_execute_task_and_resume(tmp_path: Path):
     assert resumed["success"] is True
     assert resumed["resumed"] is True
     assert resumed["task"] == "Inspect files and test"
+
+
+def test_parse_file_creation_task():
+    from hearthwren.controller import parse_file_creation_task
+
+    fn, topic = parse_file_creation_task("create md file for architecture overview")
+    assert fn == "architecture_overview.md"
+    assert "architecture" in topic
+
+    fn2, topic2 = parse_file_creation_task("create a file named notes.md")
+    assert fn2 == "notes.md"
+
+    fn3, topic3 = parse_file_creation_task("generate python file for helper")
+    assert fn3 == "helper.py"
+
+
+def test_execute_task_creates_file_on_disk(tmp_path: Path):
+    controller = AgentController(workspace_root=tmp_path)
+
+    # Prompt matching the exact user pattern: "create md file for test"
+    res = controller.execute_task("create md file for test guide")
+    assert res["success"] is True
+    assert res["file_created"] == "test_guide.md"
+
+    created_file = tmp_path / "test_guide.md"
+    assert created_file.is_file()
+    content = created_file.read_text(encoding="utf-8")
+    assert "# Test Guide" in content
+    assert "Overview" in content
+

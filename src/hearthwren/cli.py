@@ -430,7 +430,7 @@ def cmd_diff(
 ) -> None:
     """View git diff of workspace changes."""
     git_svc = GitService()
-    diff_text = git_svc.diff(staged=staged)
+    diff_text = git_svc.diff(staged=staged) or ""
     if not diff_text.strip():
         console.print("[cyan]No changes detected in working tree.[/cyan]")
         return

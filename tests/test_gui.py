@@ -171,7 +171,26 @@ def test_api_browse_endpoint(test_workspace: Path) -> None:
     assert code == 200
     data = json.loads(body.decode("utf-8"))
     assert "current" in data
+    assert "drives" in data
     assert "subdirectories" in data
+
+    # Test browsing specific dir
+    code2, _, body2 = simulate_request(f"/api/browse?dir={test_workspace}", workspace=test_workspace)
+    assert code2 == 200
+    data2 = json.loads(body2.decode("utf-8"))
+    assert data2["current"] == str(test_workspace)
+
+
+def test_api_browse_dialog_endpoint(test_workspace: Path) -> None:
+    code, _, body = simulate_request(
+        "/api/browse-dialog",
+        method="POST",
+        body={"current": str(test_workspace)},
+        workspace=test_workspace,
+    )
+    assert code == 200
+    data = json.loads(body.decode("utf-8"))
+    assert "path" in data
 
 
 def test_api_set_repo_endpoint(test_workspace: Path, tmp_path: Path) -> None:
@@ -232,12 +251,15 @@ def test_api_run_endpoint(test_workspace: Path) -> None:
     code, _, body = simulate_request(
         "/api/run",
         method="POST",
-        body={"task": "check status", "multi_phase": False},
+        body={"task": "create md file for quick start guide", "multi_phase": False},
         workspace=test_workspace,
     )
     assert code == 200
     data = json.loads(body.decode("utf-8"))
     assert data["success"] is True
+    assert data["file_created"] == "quick_start_guide.md"
+    assert (test_workspace / "quick_start_guide.md").is_file()
+
 
 
 def test_launcher_helpers() -> None:

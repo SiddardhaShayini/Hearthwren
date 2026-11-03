@@ -19,13 +19,23 @@ class GitService:
 
     def _run_git(self, args: list[str], timeout_seconds: float = 20.0) -> subprocess.CompletedProcess[str]:
         """Execute a git command in the workspace directory."""
-        return subprocess.run(
-            ["git", *args],
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            cwd=str(self.workspace_root),
-        )
+        try:
+            return subprocess.run(
+                ["git", *args],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout_seconds,
+                cwd=str(self.workspace_root),
+            )
+        except Exception as e:
+            return subprocess.CompletedProcess(
+                args=["git", *args],
+                returncode=1,
+                stdout="",
+                stderr=str(e),
+            )
 
     def is_git_repo(self) -> bool:
         """Check if workspace root is inside a git repository."""
@@ -86,7 +96,7 @@ class GitService:
             return ""
         args = ["diff", "--cached"] if staged else ["diff"]
         res = self._run_git(args)
-        return res.stdout
+        return res.stdout or ""
 
     def log(self, max_count: int = 5) -> list[dict[str, str]]:
         """Return recent commit log entries."""

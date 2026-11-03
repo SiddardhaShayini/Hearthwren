@@ -222,16 +222,39 @@
 
   <!-- Repository Selector Modal -->
   <div class="modal-overlay" id="repo-modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 600px;">
       <div class="modal-header">
-        <span style="font-weight: 600; font-size: 15px;">Select Working Repository</span>
+        <span style="font-weight: 600; font-size: 15px;">📁 Select Working Repository</span>
         <span style="cursor: pointer; color: var(--text-secondary);" id="btn-close-repo-modal">✕</span>
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">
-          Enter the absolute path to any repository or project directory on this machine:
+          Choose or enter any project or repository directory on this computer:
         </p>
-        <input type="text" id="modal-repo-input" class="text-input" style="width: 100%;" placeholder="e.g. D:\Hearthwren or C:\Projects\MyRepo">
+
+        <!-- Input Row with Browse Button -->
+        <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+          <input type="text" id="modal-repo-input" class="text-input" style="flex: 1;" placeholder="e.g. D:\Hearthwren or D:\zzz">
+          <button class="btn btn-secondary" id="btn-native-browse" title="Open native folder picker dialog" style="white-space: nowrap;">
+            📂 Browse...
+          </button>
+        </div>
+
+        <!-- Interactive Folder Explorer -->
+        <div class="browse-explorer-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Folder Navigator:</span>
+            <button class="btn btn-secondary" id="btn-browse-parent" style="padding: 2px 8px; font-size: 11px;">⬆ Up (..)</button>
+          </div>
+
+          <!-- Drives List (C:\, D:\, etc.) -->
+          <div id="browse-drives-container" style="display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;"></div>
+
+          <!-- Subdirectories List -->
+          <div id="browse-subdirs-container" class="browse-subdirs-list">
+            <span style="font-size: 12px; color: var(--text-dim);">Loading directories...</span>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btn-cancel-repo">Cancel</button>

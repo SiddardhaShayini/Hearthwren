@@ -29,3 +29,15 @@ def test_full_multi_phase_execution(tmp_path: Path):
     assert result.phase_results[0].phase == TaskPhase.UNDERSTAND
     assert result.phase_results[-1].phase == TaskPhase.REPORT
     assert result.final_report != ""
+
+
+def test_multi_phase_creates_file_on_disk(tmp_path: Path):
+    runner = SequentialSubtaskRunner(workspace_root=tmp_path)
+    result = runner.run_all_phases("create md file for pipeline notes")
+
+    assert result.success is True
+    created = tmp_path / "pipeline_notes.md"
+    assert created.is_file()
+    content = created.read_text(encoding="utf-8")
+    assert "Pipeline Notes" in content
+
