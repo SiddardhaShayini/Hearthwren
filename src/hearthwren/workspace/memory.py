@@ -193,32 +193,43 @@ class MemoryManager:
             "message": "Session log appended to AGENT_MEMORY.md.",
         }
 
-    def generate_initial_memory(self, project_name: str, description: str = "") -> str:
-        """Scaffold a fresh AGENT_MEMORY.md file for a new project."""
+    def generate_initial_memory(
+        self,
+        project_name: str,
+        description: str = "",
+        entry_points: list[str] | None = None,
+        test_command: str | None = None,
+        primary_language: str | None = None,
+    ) -> str:
+        """Scaffold a fresh AGENT_MEMORY.md file for a new project with detected facts."""
         ist_tz = timezone(timedelta(hours=5, minutes=30))
         date_str = datetime.now(ist_tz).strftime("%Y-%m-%d")
+
+        entries_txt = "\n".join(f"- `{e}`" for e in entry_points) if entry_points else "- Entry points: TBD"
+        test_cmd_txt = f"- Test: `{test_command}`" if test_command else "- Test: TBD"
+        lang_txt = f" ({primary_language})" if primary_language else ""
 
         return f"""# AGENT MEMORY — {project_name}
 _Last updated: {date_str} by Hearthwren v0.1.0_
 
 ## 1. Project Summary
-{description or f"Project {project_name} managed with Hearthwren."}
+{description or f"Project {project_name}{lang_txt} managed with Hearthwren."}
 
 ## 2. Architecture Snapshot
-- Entry points: TBD
+{entries_txt}
 - Key directories: TBD
 
 ## 3. Setup & Test Commands
 - Install: TBD
-- Test: TBD
+{test_cmd_txt}
 - Run: TBD
 
 ## 4. Conventions
-- Code style: TBD
+- Code style: Standard
 
 ## 5. Constraints
 - Hardware: CPU-only, 8 GB RAM target
-- Local-first execution
+- Local-first execution (<= 3.5 GB ceiling)
 
 ## 6. Known Issues & Past Failures
 | Date | Task | Issue / Mistake | What Happened | Lesson |

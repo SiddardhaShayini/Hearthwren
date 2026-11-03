@@ -26,6 +26,7 @@ from hearthwren.config import (
 )
 from hearthwren.controller import AgentController
 from hearthwren.resource_supervisor import ResourceSupervisor
+from hearthwren.workspace.detector import ProjectDetector
 from hearthwren.workspace.git_service import GitService
 from hearthwren.workspace.memory import MemoryManager
 
@@ -68,12 +69,26 @@ def cmd_init(
     paths = init_workspace_dirs(root)
     console.print(f"  [cyan]+[/cyan] Created configuration at: {paths['config_file'].relative_to(root)}")
 
+    # Detect project characteristics
+    detector = ProjectDetector(root)
+    summary = detector.detect()
+    console.print(f"  [cyan]+[/cyan] Detected Primary Language: [green]{summary.primary_language}[/green]")
+    if summary.manifests:
+        console.print(f"  [cyan]+[/cyan] Detected Manifests: [green]{', '.join(summary.manifests)}[/green]")
+    if summary.test_framework:
+        console.print(f"  [cyan]+[/cyan] Detected Test Framework: [green]{summary.test_framework}[/green]")
+
     # Check or scaffold AGENT_MEMORY.md
     memory_mgr = MemoryManager(root)
     if not memory_mgr.exists():
-        scaffold = memory_mgr.generate_initial_memory(root.name)
+        scaffold = memory_mgr.generate_initial_memory(
+            project_name=root.name,
+            entry_points=summary.entry_points,
+            test_command=summary.test_framework,
+            primary_language=summary.primary_language,
+        )
         (root / "AGENT_MEMORY.md").write_text(scaffold, encoding="utf-8")
-        console.print("  [cyan]+[/cyan] Scaffolded AGENT_MEMORY.md")
+        console.print("  [cyan]+[/cyan] Scaffolded AGENT_MEMORY.md with detected project context")
     else:
         console.print("  [cyan]+[/cyan] Existing AGENT_MEMORY.md found and preserved")
 
@@ -97,6 +112,22 @@ def cmd_status() -> None:
     # Hardware & RAM
     sys_mem = supervisor.get_system_memory()
     proc_mem = supervisor.get_process_memory()
+
+    # Detected project characteristics
+    detector = ProjectDetector(root)
+    proj_summary = detector.detect()
+
+    proj_table = Table(title="Detected Project Structure", show_header=True)
+    proj_table.add_column("Property", style="cyan")
+    proj_table.add_column("Value", style="green")
+    proj_table.add_row("Primary Language", proj_summary.primary_language)
+    proj_table.add_row("Manifests", ", ".join(proj_summary.manifests) if proj_summary.manifests else "None")
+    proj_table.add_row("Test Framework", proj_summary.test_framework or "Not detected")
+    proj_table.add_row("Tracked Source Files", str(proj_summary.total_source_files))
+    if proj_summary.entry_points:
+        proj_table.add_row("Entry Points", ", ".join(proj_summary.entry_points[:4]))
+
+    console.print(proj_table)
 
     mem_table = Table(title="Resource Health & Memory", show_header=True)
     mem_table.add_column("Metric", style="cyan")
@@ -351,46 +382,102 @@ def cmd_config() -> None:
 
 
 def interactive_repl() -> None:
-    """Interactive chat REPL mode."""
+    """Interactive chat REPL mode with multi-turn support and slash commands."""
     console.print(
         Panel(
             f"[bold cyan]{__product_name__}[/bold cyan] v{__version__} -- [italic]Local. Lean. Built right.[/italic]\n"
-            "Interactive mode. Type your task, or 'help', or 'exit' to quit.",
+            "Interactive mode. Type a task, or '/help' for commands, or 'exit' to quit.",
             expand=False,
         )
     )
 
     controller = AgentController()
-    # Check RAM
+    root = Path.cwd()
+
+    # Pre-flight RAM check on start
     ok, msg = controller.supervisor.preflight_ram_check()
     if not ok:
-        console.print(f"[bold red]Warning:[/bold red] {msg}")
+        console.print(f"[bold red]Resource Warning:[/bold red] {msg}")
+
+    # Display short onboarding context
+    git_st = controller.tool_broker.git_service.status()
+    if git_st["is_repo"]:
+        console.print(f"Git: on [cyan]{git_st['branch']}[/cyan] (Clean: {git_st['clean']})")
+
+    conversation_history: list[tuple[str, str]] = []
 
     while True:
         try:
             user_input = console.input("\n[bold green]hwren>[/bold green] ").strip()
             if not user_input:
                 continue
-            if user_input.lower() in ("exit", "quit", "q"):
+            if user_input.lower() in ("exit", "quit", "q", "/exit", "/quit"):
                 console.print("[cyan]Goodbye![/cyan]")
                 break
-            if user_input.lower() == "help":
-                console.print("Commands available: plan <task>, guide <question>, verify, status, config, exit")
+            if user_input.lower() in ("help", "/help", "?"):
+                help_table = Table(title="Interactive Slash Commands", show_header=True)
+                help_table.add_column("Command", style="cyan")
+                help_table.add_column("Description", style="white")
+                help_table.add_row("/plan <task>", "Generate structured implementation plan without code edits")
+                help_table.add_row("/run <task>", "Execute task through state machine with interactive approval")
+                help_table.add_row("/guide <query>", "Explain architectural steps and how-tos without changing files")
+                help_table.add_row("/verify", "Run discovered project tests and verify real exit codes")
+                help_table.add_row("/diff", "View git diff of workspace changes")
+                help_table.add_row("/commit <msg>", "Stage and commit changes with user confirmation")
+                help_table.add_row("/status", "Show resource health, project structure, and git status")
+                help_table.add_row("/index", "Run idle-time SQLite FTS indexing over source files")
+                help_table.add_row("/config", "View current configuration settings")
+                help_table.add_row("/clear", "Clear recent conversation turns")
+                help_table.add_row("exit / quit", "Exit the interactive session")
+                console.print(help_table)
                 continue
 
-            if user_input.lower().startswith("plan "):
-                cmd_plan(user_input[5:].strip())
-            elif user_input.lower().startswith("guide "):
-                cmd_guide(user_input[6:].strip())
-            elif user_input.lower() == "verify":
+            # Command routing
+            cmd_lower = user_input.lower()
+            if cmd_lower.startswith("/plan ") or cmd_lower.startswith("plan "):
+                task = user_input.split(" ", 1)[1].strip()
+                cmd_plan(task)
+            elif cmd_lower.startswith("/run ") or cmd_lower.startswith("run "):
+                task = user_input.split(" ", 1)[1].strip()
+                cmd_run(task)
+            elif cmd_lower.startswith("/guide ") or cmd_lower.startswith("guide "):
+                q = user_input.split(" ", 1)[1].strip()
+                cmd_guide(q)
+            elif cmd_lower in ("/verify", "verify"):
                 cmd_verify()
-            elif user_input.lower() == "status":
+            elif cmd_lower in ("/status", "status"):
                 cmd_status()
-            elif user_input.lower() == "config":
+            elif cmd_lower in ("/diff", "diff"):
+                cmd_diff()
+            elif cmd_lower.startswith("/commit ") or cmd_lower.startswith("commit "):
+                msg_txt = user_input.split(" ", 1)[1].strip()
+                cmd_commit(msg_txt)
+            elif cmd_lower in ("/config", "config"):
                 cmd_config()
+            elif cmd_lower in ("/index", "index"):
+                console.print("[cyan]Indexing source files with SQLite FTS...[/cyan]")
+                from hearthwren.workspace.indexer import WorkspaceIndexer
+                indexer = WorkspaceIndexer()
+                n = indexer.index_workspace()
+                console.print(f"[bold green][OK] Indexed {n} files in .hearthwren/index.db[/bold green]")
+            elif cmd_lower in ("/clear", "clear"):
+                conversation_history.clear()
+                console.print("[cyan]Conversation context cleared.[/cyan]")
             else:
-                # Default to plan & inspect
-                cmd_plan(user_input)
+                # Open-ended multi-turn query
+                # Assemble context from history (windowed to last 3 turns)
+                history_str = ""
+                for u, a in conversation_history[-3:]:
+                    history_str += f"User: {u}\nAssistant: {a}\n"
+
+                system, prompt = controller.assemble_prompt_context(
+                    user_message=user_input,
+                    role_instructions="ROLE: Conversational assistant. Answer concisely, adhering to resource constraints.",
+                    extra_context=history_str,
+                )
+                response = controller.model_service.generate(prompt=prompt, system_prompt=system)
+                console.print(f"\n{response}")
+                conversation_history.append((user_input, response[:300]))
 
         except (KeyboardInterrupt, EOFError):
             console.print("\n[cyan]Session ended.[/cyan]")

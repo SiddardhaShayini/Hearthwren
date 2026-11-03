@@ -123,13 +123,16 @@ Resource Supervisor  (wraps everything: RAM monitor, concurrency lock, timeouts,
 | `src/hearthwren/tool_broker.py` | Validated, typed tool dispatch and security broker |
 | `src/hearthwren/model_service.py` | Local model service (llama-cpp-python & deterministic fallback) |
 | `src/hearthwren/controller.py` | State machine (Understand -> Plan -> Approve -> Act -> Verify -> Report) |
+| `src/hearthwren/subtasks.py` | Sequential subtasks / multi-phase runner (Understand, Test Spec, Implement, Review, Report) |
+| `src/hearthwren/workspace/detector.py` | Non-destructive project manifest, language, and toolchain detector |
 | `src/hearthwren/workspace/file_ops.py` | Bounded file read, unified diffs, safe atomic writes with backups |
 | `src/hearthwren/workspace/search.py` | Ripgrep with automatic pure-Python search fallback |
 | `src/hearthwren/workspace/git_service.py` | Direct git CLI wrapper with approval gates for stage/commit/push |
 | `src/hearthwren/workspace/test_runner.py` | Project test discovery and verified exit-code execution |
 | `src/hearthwren/workspace/memory.py` | In-repo AGENT_MEMORY.md reader/writer and stale entry checker |
 | `src/hearthwren/workspace/indexer.py` | Lightweight SQLite FTS5 indexer for idle-time search |
-| `tests/` | Comprehensive test suite (38 unit & adversarial tests covering all modules) |
+| `.github/workflows/ci.yml` | Multi-OS GitHub Actions CI workflow (Windows, Ubuntu, macOS) |
+| `tests/` | Comprehensive test suite (48 unit & adversarial tests covering all modules) |
 | `.hearthwren/config.toml` | User-editable settings: context size, timeouts, safe commands, model path (gitignored) |
 | `.hearthwren/index.db` | SQLite FTS + symbol index (gitignored, auto-rebuilds) |
 | `.hearthwren/session.json` | Last task state for resumption (gitignored) |
@@ -418,6 +421,33 @@ These apply to Hearthwren agents during development AND to Hearthwren's runtime 
 - **Outcome:** Success — Repository configured, committed, and pushed to origin/main with all Phase 0-3 deliverables and 38 passing tests.
 - **Mistakes / wrong assumptions:** None.
 - **Lessons:** Initial commit encapsulates complete, verified architecture with full documentation and benchmark suite.
+- **Approved by user:** Yes
+
+---
+
+### Session — 2026-11-03 12:37 IST
+- **Agent/Model:** Antigravity (Gemini 3.8 Flash High)
+- **Task:** Implement ProjectDetector, SequentialSubtaskRunner, Multi-turn REPL with slash commands, GitHub Actions CI workflow, and expand test suite to 48 tests
+- **Phase:** Phase 3 & Advanced Capabilities
+- **Files read:**
+  - `src/hearthwren/cli.py`
+  - `src/hearthwren/workspace/memory.py`
+- **Files written/modified:**
+  - `src/hearthwren/workspace/detector.py`
+  - `src/hearthwren/subtasks.py`
+  - `src/hearthwren/cli.py`
+  - `src/hearthwren/workspace/memory.py`
+  - `.github/workflows/ci.yml`
+  - `tests/test_detector.py`
+  - `tests/test_subtasks.py`
+  - `tests/test_cli_commands.py`
+  - `AGENT_MEMORY.md`
+- **Commands run:**
+  - `python -m hearthwren.cli status` (verified rich project structure detection display)
+  - `pytest -v` (ran full suite: all 48 tests passed in 1.36s)
+- **Outcome:** Success — Project structure detector, sequential subtasks, multi-turn interactive REPL with slash commands, and CI workflows fully operational and verified.
+- **Mistakes / wrong assumptions:** None.
+- **Lessons:** Non-destructive manifest and entry-point scanning empowers `hwren init` to seed `AGENT_MEMORY.md` with accurate project context automatically.
 - **Approved by user:** Yes
 
 ---
